@@ -1,0 +1,74 @@
+#!/usr/bin/expect --
+# program the boards using gdb
+# Usage : expect prog_board.exp \"ARCH\" \"ELF_FILE\" \[ETH_DONGLE_IP_ADDRESS\]
+set CmdLnPrms [llength $argv]
+if {$CmdLnPrms == 0} {
+	puts "\nUsage: expect prog_board.exp \"ARCH\" \"ELF_FILE\" \[ETH_DONGLE_IP_ADDRESS\]"
+	exit 1
+}
+
+set B_ARCH [lindex $argv 0]
+set ELF_FILE [lindex $argv 1]
+if {$CmdLnPrms == 3} {
+    set TARGET_STRING [lindex $argv 2]:5010
+} else {
+   set TARGET_STRING $env(UBICOM_DONGLE)
+}
+
+#Replace all two/more backslashes with one backslash
+regsub -all {\\\\([^/])|\\\\$} $ELF_FILE {\\\1} ELF_FILE
+#Replace all one backslash with two backslashes
+regsub -all {\\([^/])|\\$} $ELF_FILE {\\\\\1} ELF_FILE
+
+if {![string compare $B_ARCH IP2K]} {
+	set gdbid [spawn -nottyinit ip2k-elf-gdb --quiet]
+	set dot_count 80
+} elseif {![string compare $B_ARCH IP5K]} {
+    set gdbid [spawn -nottyinit ip3k-elf-gdb --quiet]
+    set dot_count 160
+} else {
+    set gdbid [spawn -nottyinit ubicom32-elf-gdb --quiet]
+    set dot_count 160
+}
+expect "(gdb)"
+send "file $ELF_FILE\r"
+expect "(gdb)"
+send "target $B_ARCH $TARGET_STRING\r"
+expect {
+	-re "^\[uU\]nable to" {
+		exec kill $gdbid
+		exit 1
+	}
+	"(gdb)" {
+		send "load\r"
+		while {$dot_count > 0} {
+			expect {
+				"." {
+					send ""
+					set dot_count [expr $dot_count-1]
+				}
+				"You can't do that" {
+					exec kill $gdbid
+					puts "\nFailed to connect to the target before issuing load"
+					exit 1
+				}
+				timeout {
+					exec kill $gdbid
+					puts "\nFailed to load application properly"
+					exit 1
+				}
+			}
+		}
+		expect "(gdb)"
+		send "detach\r"
+		expect "(gdb)"
+		send "quit\r"
+	}
+	timeout {
+		exec kill $gdbid
+		puts "\nCannot connect to target\n"
+		exit 1
+	}
+}
+close; wait
+

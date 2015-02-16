@@ -1,0 +1,3 @@
+pure_ftpd-log_extauth.o: log_extauth.c ../config.h
+
+../config.h:

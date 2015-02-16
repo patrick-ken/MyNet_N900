@@ -1,0 +1,5783 @@
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/arch/arm/mach-s3c2410/Kconfig linux-2.6.20.1/arch/arm/mach-s3c2410/Kconfig
+--- linux-2.6.20.1-org/arch/arm/mach-s3c2410/Kconfig	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/arch/arm/mach-s3c2410/Kconfig	2008-01-25 11:21:00.000000000 -0800
+@@ -78,7 +78,13 @@ config ARCH_SMDK2410
+ 	select MACH_SMDK
+ 	help
+ 	   Say Y here if you are using the SMDK2410 or the derived module A9M2410
+-           <http://www.fsforth.de>
++	   <http://www.fsforth.de>, or the IPMate platform
++
++config MACH_IPMATE
++	bool "IPMate"
++	select CPU_S3C2410
++	help
++	   Say Y here if you are using the IPMate derivative of the SMDK2410
+ 
+ config ARCH_S3C2440
+ 	bool "SMDK2440"
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/arch/arm/mach-s3c2410/lm.c linux-2.6.20.1/arch/arm/mach-s3c2410/lm.c
+--- linux-2.6.20.1-org/arch/arm/mach-s3c2410/lm.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/arch/arm/mach-s3c2410/lm.c	2008-02-29 11:22:28.000000000 -0800
+@@ -0,0 +1,98 @@
++/*
++ *  linux/arch/arm/mach-integrator/lm.c
++ *
++ *  Copyright (C) 2003 Deep Blue Solutions Ltd, All Rights Reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/device.h>
++#include <linux/version.h>
++
++#include <asm/arch/lm.h>
++
++#define to_lm_device(d)	container_of(d, struct lm_device, dev)
++#define to_lm_driver(d)	container_of(d, struct lm_driver, drv)
++
++static int lm_match(struct device *dev, struct device_driver *drv)
++{
++	return 1;
++}
++
++static struct bus_type lm_bustype = {
++	.name		= "logicmodule",
++	.match		= lm_match,
++//	.suspend	= lm_suspend,
++//	.resume		= lm_resume,
++};
++
++static int __init lm_init(void)
++{
++	return bus_register(&lm_bustype);
++}
++
++postcore_initcall(lm_init);
++
++static int lm_bus_probe(struct device *dev)
++{
++	struct lm_device *lmdev = to_lm_device(dev);
++	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
++
++	return lmdrv->probe(lmdev);
++}
++
++static int lm_bus_remove(struct device *dev)
++{
++	struct lm_device *lmdev = to_lm_device(dev);
++	struct lm_driver *lmdrv = to_lm_driver(dev->driver);
++
++	lmdrv->remove(lmdev);
++	return 0;
++}
++
++int lm_driver_register(struct lm_driver *drv)
++{
++	drv->drv.bus = &lm_bustype;
++	drv->drv.probe = lm_bus_probe;
++	drv->drv.remove = lm_bus_remove;
++
++	return driver_register(&drv->drv);
++}
++
++void lm_driver_unregister(struct lm_driver *drv)
++{
++	driver_unregister(&drv->drv);
++}
++
++static void lm_device_release(struct device *dev)
++{
++	struct lm_device *d = to_lm_device(dev);
++
++	kfree(d);
++}
++
++int lm_device_register(struct lm_device *dev)
++{
++	int ret;
++
++	dev->dev.release = lm_device_release;
++	dev->dev.bus = &lm_bustype;
++
++	snprintf(dev->dev.bus_id, sizeof(dev->dev.bus_id), "lm%d", dev->id);
++	dev->resource.name = dev->dev.bus_id;
++
++	ret = request_resource(&iomem_resource, &dev->resource);
++	if (ret == 0) {
++		ret = device_register(&dev->dev);
++		if (ret)
++			release_resource(&dev->resource);
++	}
++
++	return ret;
++}
++
++EXPORT_SYMBOL(lm_driver_register);
++EXPORT_SYMBOL(lm_driver_unregister);
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/arch/arm/mach-s3c2410/mach-ipmate.c linux-2.6.20.1/arch/arm/mach-s3c2410/mach-ipmate.c
+--- linux-2.6.20.1-org/arch/arm/mach-s3c2410/mach-ipmate.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/arch/arm/mach-s3c2410/mach-ipmate.c	2008-02-25 16:12:47.000000000 -0800
+@@ -0,0 +1,391 @@
++/***********************************************************************
++ *
++ * linux/arch/arm/mach-s3c2410/mach-ipmate.c
++ *
++ * Copyright (C) 2004 by FS Forth-Systeme GmbH
++ * All rights reserved.
++ *
++ * $Id: mach-ipmate.c,v 1.1 2004/05/11 14:15:38 mpietrek Exp $
++ * @Author: Jonas Dietsche
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of
++ * the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
++ * MA 02111-1307 USA
++ *
++ * @History:
++ * derived from linux/arch/arm/mach-s3c2410/mach-bast.c, written by
++ * Ben Dooks <ben@simtec.co.uk>
++ * 
++ * Yair Raz <yair@raztek-inc.com>, 9/21/2007
++ *		Used Physical and Virtual address of SMC NAND Flash
++ ***********************************************************************/
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/interrupt.h>
++#include <linux/list.h>
++#include <linux/timer.h>
++#include <linux/init.h>
++#include <linux/device.h>
++#include <linux/version.h>
++
++#include <asm/mach/arch.h>
++#include <asm/mach/map.h>
++#include <asm/mach/irq.h>
++
++#include <asm/hardware.h>
++#include <asm/io.h>
++#include <asm/irq.h>
++#include <asm/mach-types.h>
++
++typedef unsigned int upf_t;
++#include <asm/arch/regs-serial.h>
++#include <asm/arch/regs-gpio.h>
++#include <asm/arch/regs-mem.h>
++#include <asm/arch/fb.h>
++#include <asm/arch/nand.h>
++#include <asm/arch/lm.h>
++
++#include <linux/mtd/mtd.h>
++#include <linux/mtd/nand.h>
++#include <linux/mtd/nand_ecc.h>
++#include <linux/mtd/partitions.h>
++
++#include "devs.h"
++#include "cpu.h"
++
++static struct map_desc ipmate_iodesc[] __initdata = 
++{
++	{ (u32)IPMATE_VA_CS8900A,	__phys_to_pfn(IPMATE_PA_CS8900A),	SZ_1M,		MT_DEVICE }, 		// IpMate Ethernet
++	{ (u32)S3C24XX_VA_LCD,		__phys_to_pfn(S3C2410_PA_LCD),		S3C24XX_SZ_LCD,	MT_DEVICE }, 		// SMC LCD
++	{ (u32)S3C24XX_VA_NAND,		__phys_to_pfn(S3C2410_PA_NAND),		S3C24XX_SZ_NAND,MT_DEVICE }, 		// SMC Nand flash
++	{ (u32)S3C24XX_VA_ADC,		__phys_to_pfn(S3C2410_PA_ADC),		S3C24XX_SZ_ADC, MT_DEVICE }, // Touchscreen ADC                                                                                               // 
++	{ (u32)IPMATE_VA_LM,		__phys_to_pfn(IPMATE_PA_LM),		SZ_1M,		MT_DEVICE },  		// IpMate Logic Module
++	{ (u32)S3C24XX_VA_MEMCTRL,	__phys_to_pfn(S3C2410_PA_MEMCTRL),	S3C24XX_SZ_MEMCTRL,MT_DEVICE }, // Memory Controller
++	{ (u32)S3C24XX_VA_GPIO,		__phys_to_pfn(S3C2410_PA_GPIO),		S3C24XX_SZ_GPIO,MT_DEVICE } // GPIO Ports
++};
++
++#define UCON S3C2410_UCON_DEFAULT
++#define ULCON S3C2410_LCON_CS8 | S3C2410_LCON_PNONE | S3C2410_LCON_STOPB
++#define UFCON S3C2410_UFCON_RXTRIG8 | S3C2410_UFCON_FIFOMODE
++
++//YR
++//#if 0
++/**
++ * Set lcd on or off
++ **/
++/*static*/ void ipmate_lcd_power(int on)
++{
++	//printk("IpM lcd pwr %d\n", on);
++	s3c2410_gpio_setpin(S3C2410_GPC0, on);
++}
++
++EXPORT_SYMBOL(ipmate_lcd_power);
++
++/**
++ * Set the backlight on or off.
++ **/
++/*static*/ void ipmate_backlight_power(int on)
++{
++	//printk("IpM blt pwr %d\n", on);
++	s3c2410_gpio_setpin(S3C2410_GPB0, 0);
++	s3c2410_gpio_pullup(S3C2410_GPB0, 0);
++	s3c2410_gpio_cfgpin(S3C2410_GPB0,
++			    (on) ? S3C2410_GPB0_TOUT0 : S3C2410_GPB0_OUTP);
++}
++
++EXPORT_SYMBOL(ipmate_backlight_power);
++
++/* Set the backlight pwm according to the level from wince */
++
++#include <asm/arch/regs-timer.h>
++/*static*/ void ipmate_set_brightness(int level)
++{
++	unsigned long tcfg0;
++	unsigned long tcfg1;
++	unsigned long tcmpb0 = 0x00;
++	unsigned long tcon;
++
++	//printk("IpM blt brt %d\n", level);
++
++	/* configure power on/off */
++	ipmate_backlight_power(level ? 1 : 0);
++
++	switch (level) {
++	case 0:
++		break;
++	case 1:
++		tcmpb0 = 0x0b;
++		break;
++	default:
++	case 2:
++		tcmpb0 = 0x16;
++		break;
++	case 3:
++		tcmpb0 = 0x21;
++		break;
++	case 4:
++		tcmpb0 = 0x2c;
++		break;
++	}
++
++	tcfg0=__raw_readl(S3C2410_TCFG0);
++	tcfg1=__raw_readl(S3C2410_TCFG1);
++
++	tcfg0 &= ~S3C2410_TCFG_PRESCALER0_MASK;
++	tcfg0 |= 0x18;
++
++	tcfg1 &= ~S3C2410_TCFG1_MUX0_MASK;
++	tcfg1 |= S3C2410_TCFG1_MUX0_DIV2;
++
++	__raw_writel(tcfg0, S3C2410_TCFG0);
++	__raw_writel(tcfg1, S3C2410_TCFG1);
++	__raw_writel(0x31, S3C2410_TCNTB(0));
++
++	tcon = __raw_readl(S3C2410_TCON);
++	tcon &= ~0x0F;
++	tcon |= S3C2410_TCON_T0RELOAD;
++	tcon |= S3C2410_TCON_T0MANUALUPD;
++
++	__raw_writel(tcon, S3C2410_TCON);
++	__raw_writel(0x31, S3C2410_TCNTB(0));
++	__raw_writel(tcmpb0, S3C2410_TCMPB(0));
++
++	/* start the timer running */
++	tcon |= S3C2410_TCON_T0START;
++	tcon &= ~S3C2410_TCON_T0MANUALUPD;
++	__raw_writel(tcon, S3C2410_TCON);
++}
++
++EXPORT_SYMBOL(ipmate_set_brightness);
++
++//YR
++//#endif
++
++#include <asm/arch/regs-lcd.h>
++
++static struct s3c2410fb_mach_info ipmate_lcdcfg = {
++	.regs = {
++		.lcdcon1 =	S3C2410_LCDCON1_STN8BPP |
++				S3C2410_LCDCON1_STN8 |
++				S3C2410_LCDCON1_CLKVAL(0x03),
++
++		.lcdcon2 =	S3C2410_LCDCON2_LINEVAL(479),
++
++		.lcdcon3 =	S3C2410_LCDCON3_HOZVAL(239),
++
++		.lcdcon4 =	S3C2410_LCDCON4_MVAL(0) |
++				S3C2410_LCDCON4_WLH(0),
++
++		.lcdcon5 =	S3C2410_LCDCON5_PWREN |
++	                        S3C2410_LCDCON5_BSWP,
++	},
++
++	.lpcsel =	0x0, //0x4, //0x02,
++
++	.gpccon =	0xaa940659,
++	.gpccon_mask =	0xffffffff,
++	.gpcup =	0x0000ffff,
++	.gpcup_mask =	0xffffffff,
++	.gpdcon =	0xaa84aaa0,
++	.gpdcon_mask =	0xffffffff,
++	.gpdup =	0x0000faff,
++	.gpdup_mask =	0xffffffff,
++
++	.width=		640, //240,
++	.height=	480, //320,
++	.xres=		{.defval=640, .min=640, .max=640}, //240,
++	.yres=		{.defval=480, .min=480, .max=480}, //320,
++	.bpp=		{.defval=8, .min=8, .max=8}, //16,
++
++	//.backlight_min		= 0,
++	//.backlight_max		= 4,
++	//.backlight_default	= 2,
++
++	//.lcd_power		= NULL, //ipmate_lcd_power,
++	//.backlight_power	= NULL, //ipmate_backlight_power,
++	//.set_brightness		= NULL, //ipmate_set_brightness,
++};
++
++/* NAND Flash */
++
++static int smartmedia_map[] = { 0 };
++
++struct mtd_partition ipmate_default_nand_part[] = {
++	[0] = {
++		.name	= "vivi",
++		.size	= 0x00020000,
++		.offset	= 0,
++	},
++	[1] = {
++		.name	= "param",
++		.size	= 0x00010000,
++		.offset	= 0x00020000,
++	},
++	[2] = {
++		.name	= "kernel",
++		.size	= 0x001d0000,
++		.offset	= 0x00030000,
++	},
++	[3] = {
++		.name	= "root",
++		.size	= 0x03000000,
++		.offset	= 0x00200000,
++	}
++};
++
++static struct s3c2410_nand_set ipmate_nand_sets[] = {
++	[0] = {
++		.name		= "SmartMedia",
++		.nr_chips	= 1,
++		.nr_map		= smartmedia_map,
++		.nr_partitions	= ARRAY_SIZE(ipmate_default_nand_part),
++		.partitions	= ipmate_default_nand_part
++	}
++};
++
++static void ipmate_nand_select(struct s3c2410_nand_set *set, int slot)
++{
++//	unsigned int tmp;
++
++	slot = set->nr_map[slot] & 3;
++
++	pr_debug("ipmate_nand: selecting slot %d (set %p,%p)\n",
++		 slot, set, set->nr_map);
++/*
++	tmp = __raw_readb(BAST_VA_CTRL2);
++	tmp &= BAST_CPLD_CTLR2_IDERST;
++	tmp |= slot;
++	tmp |= BAST_CPLD_CTRL2_WNAND;
++
++	pr_debug("ipmate_nand: ctrl2 now %02x\n", tmp);
++
++	__raw_writeb(tmp, BAST_VA_CTRL2);
++*/
++}
++
++static struct s3c2410_platform_nand ipmate_nand_info = {
++	.tacls		= 0,
++	.twrph0		= 0,
++	.twrph1		= 0,
++	.nr_sets	= ARRAY_SIZE(ipmate_nand_sets),
++	.sets		= ipmate_nand_sets,
++	.select_chip	= ipmate_nand_select,
++};
++
++static struct s3c2410_uartcfg ipmate_uartcfgs[] = {
++	[0] = {
++		.hwport	     = 0,
++		.flags	     = 0,
++		.ucon	     = UCON,
++		.ulcon	     = ULCON,
++		.ufcon	     = UFCON,
++	},
++	[1] = {
++		.hwport	     = 1,
++		.flags	     = 0,
++		.ucon	     = UCON,
++		.ulcon	     = ULCON,
++		.ufcon	     = UFCON,
++	},
++	[2] = {
++		.hwport	     = 2,
++		.flags	     = 0,
++		.ucon	     = UCON,
++		.ulcon	     = ULCON,
++		.ufcon	     = UFCON,
++	}
++};
++
++static struct platform_device *ipmate_devices[] __initdata = {
++	&s3c_device_usb,
++	&s3c_device_lcd,
++	&s3c_device_wdt,
++	&s3c_device_i2c,
++	&s3c_device_iis,
++	&s3c_device_nand
++};
++
++static struct s3c24xx_board ipmate_board __initdata = {
++	.devices       = ipmate_devices,
++	.devices_count = ARRAY_SIZE(ipmate_devices)
++};
++
++void __init ipmate_map_io(void)
++{
++	s3c_device_nand.dev.platform_data = &ipmate_nand_info;
++	s3c_device_lcd.dev.platform_data = &ipmate_lcdcfg;
++	s3c24xx_init_io(ipmate_iodesc, ARRAY_SIZE(ipmate_iodesc));
++	s3c24xx_init_clocks(0);
++	s3c24xx_init_uarts(ipmate_uartcfgs, ARRAY_SIZE(ipmate_uartcfgs));
++	s3c24xx_set_board(&ipmate_board);
++}
++
++void __init ipmate_init_irq(void)
++{
++	s3c24xx_init_irq();
++}
++
++static void __init ipmate_init_machine(void)
++{
++//	unsigned long sc_dec;
++	int i;
++
++//	sc_dec = readl(VA_SC_BASE + INTEGRATOR_SC_DEC_OFFSET);
++	for (i = 0; i < 1 /*4*/; i++) {
++		struct lm_device *lmdev;
++
++		/*if ((sc_dec & (16 << i)) == 0)
++			continue;*/
++
++		lmdev = kmalloc(sizeof(struct lm_device), GFP_KERNEL);
++		if (!lmdev)
++			continue;
++
++		memset(lmdev, 0, sizeof(struct lm_device));
++
++		lmdev->resource.start = IPMATE_PA_LM + 0x10000000 * i;
++		lmdev->resource.end = lmdev->resource.start + SZ_1M - 1 /*0x0fffffff*/;
++		lmdev->resource.flags = IORESOURCE_MEM;
++		lmdev->irq = IPMATE_IRQ_LM + i;
++		lmdev->id = i;
++
++		lm_device_register(lmdev);
++	}
++
++	/* Set GPIOs for LCD */
++	__raw_writel(0xaaaaaaaa, S3C2410_GPCCON);
++	__raw_writel(0xaaaaaaaa, S3C2410_GPDCON);
++	s3c2410_gpio_cfgpin(S3C2410_GPG4, 3);
++	s3c2410_gpio_pullup(S3C2410_GPG4, 0);
++}
++
++MACHINE_START(SMDK2410, "SMDK2410") /* @TODO: request a new identifier and switch
++				     * to IPMATE */
++	//MAINTAINER("Jonas Dietsche")
++	.phys_io	= S3C2410_PA_UART,
++	.io_pg_offst	= (((u32)S3C24XX_VA_UART) >> 18) & 0xfffc,
++	.boot_params	= S3C2410_SDRAM_PA + 0x100,
++	.map_io		= ipmate_map_io,
++	.init_irq	= ipmate_init_irq,
++	.init_machine	= ipmate_init_machine,
++	.timer		= &s3c24xx_timer,
++
++	//BOOT_MEM(S3C2410_SDRAM_PA, S3C2410_PA_UART, (u32)S3C24XX_VA_UART)
++	//BOOT_PARAMS(S3C2410_SDRAM_PA + 0x100)
++	//MAPIO(ipmate_map_io)
++	//INITIRQ(ipmate_init_irq)
++	//.timer		= &s3c24xx_timer,
++	//INIT_MACHINE(ipmate_init_machine)
++MACHINE_END
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/arch/arm/mach-s3c2410/Makefile linux-2.6.20.1/arch/arm/mach-s3c2410/Makefile
+--- linux-2.6.20.1-org/arch/arm/mach-s3c2410/Makefile	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/arch/arm/mach-s3c2410/Makefile	2008-02-27 16:25:29.000000000 -0800
+@@ -83,10 +83,11 @@ obj-$(CONFIG_MACH_N30)		+= mach-n30.o
+ obj-$(CONFIG_ARCH_SMDK2410)	+= mach-smdk2410.o
+ obj-$(CONFIG_MACH_SMDK2413)	+= mach-smdk2413.o
+ obj-$(CONFIG_ARCH_S3C2440)	+= mach-smdk2440.o
++obj-$(CONFIG_MACH_IPMATE)	+= mach-ipmate.o lm.o
+ obj-$(CONFIG_MACH_VR1000)	+= mach-vr1000.o usb-simtec.o
+ obj-$(CONFIG_MACH_RX3715)	+= mach-rx3715.o
+ obj-$(CONFIG_MACH_OTOM)		+= mach-otom.o
+ obj-$(CONFIG_MACH_NEXCODER_2440) += mach-nexcoder.o
+ obj-$(CONFIG_MACH_VSTMS)	+= mach-vstms.o
+ 
+-obj-$(CONFIG_MACH_SMDK)		+= common-smdk.o
+\ No newline at end of file
++obj-$(CONFIG_MACH_SMDK)		+= common-smdk.o
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/input/touchscreen/ipmate_ts.c linux-2.6.20.1/drivers/input/touchscreen/ipmate_ts.c
+--- linux-2.6.20.1-org/drivers/input/touchscreen/ipmate_ts.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/drivers/input/touchscreen/ipmate_ts.c	2008-01-25 11:21:00.000000000 -0800
+@@ -0,0 +1,369 @@
++/*
++ * IPMate touchscreen support
++ * Copyright (c) 2005 Paul Zimmerman <paulz@synopsys.com>
++ *
++ * Based on the H1940TS touchscreen driver
++ * Copyright (c) 2004 Arnaud Patard <arnaud.patard@rtp-net.org>
++ */
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *
++ */
++
++#include <linux/errno.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/slab.h>
++#include <linux/input.h>
++#include <linux/init.h>
++#include <linux/serio.h>
++#include <linux/delay.h>
++#include <linux/clk.h>
++#include <asm/io.h>
++#include <asm/irq.h>
++
++#include <asm/arch/regs-adc.h>
++//#include <asm/hardware/clock.h>
++
++MODULE_AUTHOR("Paul Zimmerman <paulz@synopsys.com>");
++MODULE_DESCRIPTION("IPMate touchscreen driver");
++MODULE_LICENSE("GPL");
++
++static unsigned int ipmate_ts_adccon = 0xFFF8; /* (was 0xCC78) - end cnv, pre en, pre 255 (was 49), mux ain[7] */
++module_param_named(adccon, ipmate_ts_adccon, uint, 0);
++MODULE_PARM_DESC(adccon, "IPMate touchscreen ADCCON value.");
++static unsigned int ipmate_ts_adctsc = 0xD3;   /* YM gnd, YP ain[5], XM hi-z, XP ain[7], XP pu, norm cnv, waiting intr */
++module_param_named(adctsc, ipmate_ts_adctsc, uint, 0);
++MODULE_PARM_DESC(adctsc, "IPMate touchscreen ADCTSC value.");
++/*
++static unsigned int ipmate_ts_adctsc2 = 0x69;
++module_param_named(adctsc2, ipmate_ts_adctsc2, uint, 0);
++MODULE_PARM_DESC(adctsc2, "IPMate touchscreen ADCTSC2 value.");
++static unsigned int ipmate_ts_adctsc3 = 0x9A;
++module_param_named(adctsc3, ipmate_ts_adctsc3, uint, 0);
++MODULE_PARM_DESC(adctsc3, "IPMate touchscreen ADCTSC3 value.");
++*/
++static unsigned int ipmate_ts_adcdly = 32767;  /* (was 10000) - delay 32767 */
++module_param_named(adcdly, ipmate_ts_adcdly, uint, 0);
++MODULE_PARM_DESC(adcdly, "IPMate touchscreen ADCDLY value.");
++
++__obsolete_setup("ipmate_ts_adccon=");
++__obsolete_setup("ipmate_ts_adctsc=");
++/*
++__obsolete_setup("ipmate_ts_adctsc2=");
++__obsolete_setup("ipmate_ts_adctsc3=");
++*/
++__obsolete_setup("ipmate_ts_adcdly=");
++
++/*
++ * Definitions & global arrays.
++ */
++
++static char *ipmate_ts_name = "IPMate TouchScreen";
++
++/*
++ * Per-touchscreen data.
++ */
++
++struct ipmate_ts {
++	struct input_dev *dev;
++	long xp;
++	long yp;
++	char phys[32];
++};
++
++static struct ipmate_ts ts;
++static unsigned long last;
++static int sample;
++static long value_x[8];
++static long value_y[8];
++static long delta_x[8];
++static long delta_y[8];
++
++static irqreturn_t stylus_down(int irq, void *dev_id)
++{
++	unsigned long adccon;
++	unsigned long adctsc;
++	unsigned long data0;
++	unsigned long data1;
++
++	disable_irq(IRQ_TC);
++
++	adccon = __raw_readl(S3C2410_ADCCON);
++	adctsc = __raw_readl(S3C2410_ADCTSC);
++	data0  = __raw_readl(S3C2410_ADCDAT0);
++	data1  = __raw_readl(S3C2410_ADCDAT1);
++
++	if ((unsigned long)jiffies - last > HZ / 8) {
++		printk(KERN_DEBUG "jiffie timeout\n");
++		last = jiffies;
++
++		/* Stylus down, start X conversion */
++		adctsc &= ~0x07;
++		adctsc |= 1;
++		__raw_writel(adctsc, S3C2410_ADCTSC);
++//		__raw_writel(ipmate_ts_adctsc2, S3C2410_ADCTSC);
++		printk(KERN_DEBUG "stylus down\n");
++		__raw_writel(adccon | 1, S3C2410_ADCCON);
++		sample = 1;
++	}
++
++	enable_irq(IRQ_TC);
++	return IRQ_HANDLED;
++}
++
++static irqreturn_t stylus_action(int irq, void *dev_id)
++{
++	unsigned long adccon;
++	unsigned long adctsc;
++	unsigned long data0;
++	unsigned long data1;
++	long avg_x, avg_y;
++	long max_x, max_y;
++	int max_xi, max_yi;
++	int i, j;
++
++	disable_irq(IRQ_ADC);
++
++	adccon = __raw_readl(S3C2410_ADCCON);
++	adctsc = __raw_readl(S3C2410_ADCTSC);
++	data0 = __raw_readl(S3C2410_ADCDAT0);
++	data1 = __raw_readl(S3C2410_ADCDAT1);
++
++	if (!sample)
++		goto out;
++
++	switch (adctsc & 3) {
++	case 1: /* X conversion ended, start Y conversion */
++		adctsc &= ~0x07;
++		adctsc |= 2;
++		__raw_writel(adctsc, S3C2410_ADCTSC);
++//		__raw_writel(ipmate_ts_adctsc3, S3C2410_ADCTSC);
++//		data0 = __raw_readl(S3C2410_ADCDAT0);
++		printk(KERN_DEBUG "x: %lx\n", data0);
++		ts.xp = 0x3FF - (data0 & 0x3FF);
++//		printk(KERN_DEBUG "X : %ld, U/D: %ld\n", ts.xp, data0 >> 15);
++		__raw_writel(adccon | 1, S3C2410_ADCCON);
++		break;
++	case 2: /* Y conversion ended, switch to wait-for-interrupt */
++		adctsc &= ~0x07;
++		adctsc |= 3;
++		__raw_writel(adctsc, S3C2410_ADCTSC);
++		//__raw_writel(ipmate_ts_adctsc, S3C2410_ADCTSC);
++//		data1 = __raw_readl(S3C2410_ADCDAT1);
++		printk(KERN_DEBUG "y: %lx\n", data1);
++		ts.yp = data1 & 0x3FF;
++
++		/* If room, put sample in buffer */
++		if (sample <= 8) {
++			value_x[sample - 1] = ts.xp;
++			value_y[sample - 1] = ts.yp;
++		}
++
++		/* If sample buffer full, or stylus was lifted,
++		 * report the new position
++		 */
++		if (sample == 8 || (data1 >> 15)) {
++			/* Clip to size of sample buffer */
++			if (sample > 8)
++				sample = 8;
++
++			/* If stylus lifted, throw away last sample (usually bad) */
++			if (data1 >> 15)
++				sample--;
++
++			/* If any samples in buffer */
++			if (sample) {
++				/* Find average of all samples */
++				for (i = 0, avg_x = 0, avg_y = 0; i < sample; i++) {
++					avg_x += value_x[i];
++					avg_y += value_y[i];
++				}
++				avg_x /= sample;
++				avg_y /= sample;
++
++				/* Find delta from average for all samples */
++				for (i = 0; i < sample; i++) {
++					delta_x[i] = value_x[i] - avg_x;
++					if (delta_x[i] < 0)
++						delta_x[i] = -delta_x[i];
++					delta_y[i] = value_y[i] - avg_y;
++					if (delta_y[i] < 0)
++						delta_y[i] = -delta_y[i];
++				}
++
++				/* Throw away all samples except best one */
++				for (j = 0; j < sample - 1; j++) {
++					/* Start with first sample */
++					max_xi = 0;
++					max_x = delta_x[0];
++					max_yi = 0;
++					max_y = delta_y[0];
++
++					/* Find max delta */
++					for (i = 0; i < sample; i++) {
++						if (max_x < delta_x[i]) {
++							max_x = delta_x[i];
++							max_xi = i;
++						}
++						if (max_y < delta_y[i]) {
++							max_y = delta_y[i];
++							max_yi = i;
++						}
++					}
++
++					/* Throw away max delta sample (set it to -1) */
++					delta_x[max_xi] = -1;
++					delta_y[max_yi] = -1;
++				}
++
++				/* Find the remaining sample (delta >= 0) */
++				for (i = 0; i < sample; i++) {
++					if (delta_x[i] >= 0)
++						ts.xp = value_x[i];
++					if (delta_y[i] >= 0)
++						ts.yp = value_y[i];
++				}
++			}
++
++			/* Send report */
++			printk(KERN_DEBUG "X : %ld, U/D: %ld\n", ts.xp, data0 >> 15);
++			printk(KERN_DEBUG "Y : %ld, U/D: %ld\n", ts.yp, data1 >> 15);
++			input_report_abs(ts.dev, ABS_X, ts.xp);
++			input_report_abs(ts.dev, ABS_Y, ts.yp);
++			input_report_key(ts.dev, BTN_TOUCH, !!(data1 >> 15));
++			input_sync(ts.dev);
++			sample = 9;
++		}
++
++		/* If stylus down, start X conversion again */
++		if (!(data1 >> 15)) {
++			adctsc &= ~0x07;
++			adctsc |= 1;
++			__raw_writel(adctsc, S3C2410_ADCTSC);
++//			__raw_writel(ipmate_ts_adctsc2, S3C2410_ADCTSC);
++			printk(KERN_DEBUG "restarting conversion\n");
++			__raw_writel(adccon | 1, S3C2410_ADCCON);
++			sample++;
++			if (sample > 9)
++				sample = 9;
++		} else
++			sample = 0;
++		break;
++	default:
++		printk(KERN_DEBUG "??\n");
++		break;
++	}
++out:
++	enable_irq(IRQ_ADC);
++	return IRQ_HANDLED;
++}
++
++static struct clk	*adc_clock;
++
++/*
++ * The functions for inserting/removing us as a module.
++ */
++
++int __init ipmate_ts_init(void)
++{
++	printk(KERN_DEBUG "Entering ipmate_ts_connect\n");
++
++	adc_clock = clk_get(NULL, "adc");
++	if (!adc_clock) {
++		printk(KERN_ERR "ipmate_ts: Failed to get adc clock source\n");
++		return -ENOENT;
++	}
++	//clk_use(adc_clock);
++	clk_enable(adc_clock);
++	printk(KERN_INFO "ipmate_ts: Got and enabled clock\n");
++
++	/* probably not required */
++	msleep(10);
++/*
++	printk("adccon 0x%x, adctsc 0x%x, adctsc2 0x%x, adctsc3 0x%x, adcdly = %u\n",
++		ipmate_ts_adccon, ipmate_ts_adctsc, ipmate_ts_adctsc2,
++		ipmate_ts_adctsc3, ipmate_ts_adcdly);
++*/
++	printk("adccon 0x%x, adctsc 0x%x, adcdly = %u\n",
++		ipmate_ts_adccon, ipmate_ts_adctsc, ipmate_ts_adcdly);
++
++	/* Initialise registers */
++	__raw_writel(ipmate_ts_adccon, S3C2410_ADCCON);
++	__raw_writel(ipmate_ts_adctsc, S3C2410_ADCTSC);
++	__raw_writel(ipmate_ts_adcdly, S3C2410_ADCDLY);
++	__raw_writel(0xb1b4, S3C2410_ADCDAT0);	/* ? */
++	__raw_writel(0xb24c, S3C2410_ADCDAT1);	/* ? */
++
++	memset(&ts, 0, sizeof(struct ipmate_ts));
++
++        ts.dev = input_allocate_device();
++        if (!ts.dev) {
++                return -ENOMEM;
++        }
++
++	ts.dev->evbit[0] = BIT(EV_KEY) | BIT(EV_ABS);
++	ts.dev->keybit[LONG(BTN_TOUCH)] = BIT(BTN_TOUCH);
++	input_set_abs_params(ts.dev, ABS_X, 0x30, 0x3A0, 0, 0);
++	input_set_abs_params(ts.dev, ABS_Y, 0x80, 0x3D0, 0, 0);
++
++	sprintf(ts.phys, "ts0");
++
++	ts.dev->private = &ts;
++	ts.dev->name = ipmate_ts_name;
++	ts.dev->phys = ts.phys;
++	ts.dev->id.bustype = BUS_RS232;
++	ts.dev->id.vendor = 0xDEAD;
++	ts.dev->id.product = 0xBEEF;
++	ts.dev->id.version = 0x0100;
++
++	if (request_irq(IRQ_ADC, stylus_action, SA_SAMPLE_RANDOM,
++			"ipmate_action", &ts.dev)) {
++		printk(KERN_ERR "ipmate_ts: Could not allocate ts IRQ_ADC !\n");
++		return -EIO;
++	}
++	if (request_irq(IRQ_TC, stylus_down, SA_SAMPLE_RANDOM,
++			"ipmate_action", &ts.dev)) {
++		printk(KERN_ERR "ipmate_ts: Could not allocate ts IRQ_TC !\n");
++		return -EIO;
++	}
++
++	input_register_device(ts.dev);
++	printk(KERN_INFO "input: %s on ts\n", ipmate_ts_name);
++
++	sample = 0;
++	last = jiffies;
++	return 0;
++}
++
++void __exit ipmate_ts_exit(void)
++{
++	disable_irq(IRQ_ADC);
++	disable_irq(IRQ_TC);
++	free_irq(IRQ_TC, ts.dev);
++	free_irq(IRQ_ADC, ts.dev);
++
++	if (adc_clock) {
++		clk_disable(adc_clock);
++		//clk_unuse(adc_clock);
++		clk_put(adc_clock);
++		adc_clock = NULL;
++	}
++
++	input_unregister_device(ts.dev);
++}
++
++module_init(ipmate_ts_init);
++module_exit(ipmate_ts_exit);
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/input/touchscreen/Kconfig linux-2.6.20.1/drivers/input/touchscreen/Kconfig
+--- linux-2.6.20.1-org/drivers/input/touchscreen/Kconfig	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/input/touchscreen/Kconfig	2008-01-25 11:21:00.000000000 -0800
+@@ -61,6 +61,17 @@ config TOUCHSCREEN_GUNZE
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called gunze.
+ 
++config TOUCHSCREEN_IPMATE
++	tristate "IPMate touchscreen input driver"
++	depends on MACH_IPMATE && INPUT && INPUT_TOUCHSCREEN
++	help
++	  Say Y here if you have the IPMate touchscreen.
++
++	  If unsure, say N.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called ipmate_ts.
++
+ config TOUCHSCREEN_ELO
+ 	tristate "Elo serial touchscreens"
+ 	select SERIO
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/input/touchscreen/Makefile linux-2.6.20.1/drivers/input/touchscreen/Makefile
+--- linux-2.6.20.1-org/drivers/input/touchscreen/Makefile	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/input/touchscreen/Makefile	2008-01-25 11:21:00.000000000 -0800
+@@ -4,6 +4,7 @@
+ 
+ # Each configuration option enables a list of files.
+ 
++obj-$(CONFIG_TOUCHSCREEN_IPMATE) += ipmate_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_ADS7846)	+= ads7846.o
+ obj-$(CONFIG_TOUCHSCREEN_BITSY)	+= h3600_ts_input.o
+ obj-$(CONFIG_TOUCHSCREEN_CORGI)	+= corgi_ts.o
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/mtd/nand/bon.c linux-2.6.20.1/drivers/mtd/nand/bon.c
+--- linux-2.6.20.1-org/drivers/mtd/nand/bon.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/drivers/mtd/nand/bon.c	2008-01-29 10:33:21.000000000 -0800
+@@ -0,0 +1,728 @@
++/* TODO:
++
++   (C) 2002, Mizi Research Inc.
++   Author: Hwang, Chideok <hwang@mizi.co.kr>
++*/
++
++//#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/mtd/mtd.h>
++#include <linux/mtd/partitions.h>
++#include <linux/mtd/nand_ecc.h>
++#include <asm/errno.h>
++
++#define BON_MAJOR 97
++
++#define MAJOR_NR BON_MAJOR
++#define DEVICE_NAME "bon"
++/*#define DEVICE_REQUEST do_bon_request
++#define DEVICE_NR(device) (device)
++#define DEVICE_ON(device)
++#define DEVICE_OFF(device)
++#define DEVICE_NO_RANDOM*/
++#include <linux/blkdev.h>
++#include <linux/buffer_head.h>
++
++//#include <linux/devfs_fs_kernel.h>
++
++#undef CONFIG_PROC_FS
++
++#define x1printk(x) do { /*printk x ;*/ } while (0)
++#define x2printk(x) do { /*printk x ;*/ } while (0)
++
++static int PARTITION_OFFSET  = (~0);
++
++#define MAX_RETRY 5
++#if 0 // bushi
++#define MAX_MTD_PART 2
++#endif
++
++#define MAX_PART 5
++
++typedef struct {
++    unsigned long offset;
++    unsigned long size;
++    unsigned long flag;
++#if 0
++    devfs_handle_t devfs_rw_handle;
++#endif
++    unsigned short *bad_blocks;
++} partition_t;
++
++static struct gendisk *bon_disks[MAX_PART];
++static struct block_device *bon_bdev[MAX_PART];
++//static struct request_queue *bon_queue[MAX_PART];
++static struct request_queue *bon_queue;
++
++static struct {
++    struct mtd_info *mtd;
++#if 0 // bushi
++    struct mtd_info *shadow_mtd[MAX_MTD_PART];
++#endif
++    int num_part;
++#if 0 // bushi
++    int num_mtd_part;
++#endif
++#if 0
++    devfs_handle_t devfs_dir_handle;
++#endif
++    partition_t parts[MAX_PART];
++#if 0 // bushi
++    struct mtd_partition mtd_parts[MAX_MTD_PART];
++#endif
++} bon;
++
++static const char BON_MAGIC[8] = {'M', 0, 0, 'I', 0, 'Z', 'I', 0};
++static int bon_sizes[MAX_PART];
++static int bon_blksizes[MAX_PART];
++
++static DEFINE_SPINLOCK(bon_lock);
++
++//static char dummy_bfr1[32768];
++//static char dummy_bfr2[512];
++
++static int read_oob(struct mtd_info *mtd, loff_t offs, size_t len,
++		    size_t *retlen, uint8_t *buf)
++{
++	struct mtd_oob_ops ops;
++	int res;
++
++	ops.mode = MTD_OOB_RAW; //MTD_OOB_PLACE;
++	ops.ooboffs = offs & (mtd->writesize - 1);
++	ops.ooblen = len;
++	ops.oobbuf = buf;
++	ops.datbuf = NULL;
++
++	res = mtd->read_oob(mtd, offs & ~(mtd->writesize - 1), &ops);
++	*retlen = ops.oobretlen;
++	return res;
++}
++
++#ifdef CONFIG_PROC_FS
++#include <linux/proc_fs.h>
++static struct proc_dir_entry *proc_bon;
++
++static inline 
++int bon_proc_info(char *buf, int i)
++{
++	partition_t *this = (partition_t *)&bon.parts[i];
++
++	if (!this)
++		return 0;
++
++	return sprintf(buf, "bon%d: %8.8lx-%8.8lx (%8.8lx) %8.8lx\n", i, 
++		       this->offset, this->offset + this->size, this->size, this->flag);
++}
++
++static int 
++bon_read_proc(char *page, char **start, off_t off, int count, 
++	      int *eof, void *data_unused)
++{
++	int len, l, i;
++	off_t begin = 0;
++
++	len = sprintf(page, "      position          size       flag\n");
++
++	for (i = 0; i < bon.num_part; i++) { 
++		l = bon_proc_info(page + len, i);
++		len += l;
++		if (len + begin > off + count)
++			goto done;
++		if (len + begin < off) {
++			begin += len;
++			len = 0;
++		}
++	}
++	*eof = 1;
++
++done:
++	if (off >= len + begin)
++		return 0;
++	*start = page + (off - begin);
++	return ((count < begin + len - off) ? count : begin + len - off);
++}
++#endif // CONFIG_PROC_FS
++
++static int
++bon_open(struct inode *inode, struct file *file)
++{
++    unsigned unit = iminor(inode);
++//    int minor = MINOR(inode->i_rdev);
++    partition_t *part = &bon.parts[unit];
++
++    x1printk(("Bon: bon_open - entered, unit %d\n", unit));
++    if (unit >= bon.num_part || !part->size) {
++	x1printk(("Bon: bon_open - invalid minor %d or partition size not set\n", unit));
++	return -ENODEV;
++    }
++
++	if (bon_bdev[unit] == NULL) {
++		struct block_device *bdev = inode->i_bdev;
++		unsigned bsize;
++
++		inode = igrab(bdev->bd_inode);
++		bon_bdev[unit] = bdev;
++		bdev->bd_openers++;
++		bsize = bdev_hardsect_size(bdev);
++		x1printk(("Bon: GET bdev_hardsect_size 0x%x, bd_block_size 0x%x, i_blkbits 0x%x, i_size 0x%llx, capacity 0x%llx\n",
++		       bsize, bdev->bd_block_size, inode->i_blkbits, (unsigned long long)inode->i_size, (unsigned long long)get_capacity(bdev->bd_disk)));
++		bsize = bon_blksizes[unit];
++		bdev->bd_block_size = bsize;
++		inode->i_blkbits = blksize_bits(bsize);
++		//inode->i_size = get_capacity(bdev->bd_disk) << 9;
++		inode->i_size = (unsigned long long)bon_sizes[unit] << 10; // * 1024ULL;
++		x1printk(("Bon: SET bd_block_size 0x%x, i_blkbits 0x%x, i_size 0x%llx\n",
++		       bsize, inode->i_blkbits, (unsigned long long)inode->i_size));
++		//inode->i_bdev->bd_inode->i_size = lo->bytesize;
++		/*inode->i_size = (unsigned long long)bon_sizes[unit] << 10; // * 1024ULL;
++		set_blocksize(bdev, bon_blksizes[unit]);
++		x1printk(("Bon: set blocksize to %d\n", bon_blksizes[unit]));*/
++		set_capacity(bon_disks[unit], (unsigned long long)bon_sizes[unit] << 10); // * 1024ULL);
++		x1printk(("Bon: set capacity to 0x%llx\n", (unsigned long long)bon_sizes[unit] << 10)); // * 1024ULL));
++		bsize = bdev_hardsect_size(bdev);
++		x1printk(("Bon: GET #2 bdev_hardsect_size 0x%x, bd_block_size 0x%x, i_blkbits 0x%x, i_size 0x%llx, capacity 0x%llx\n",
++		       bsize, bdev->bd_block_size, inode->i_blkbits, (unsigned long long)inode->i_size, (unsigned long long)get_capacity(bdev->bd_disk)));
++/*
++		inode = igrab(bdev->bd_inode);
++		rd_bdev[unit] = bdev;
++		bdev->bd_openers++;
++		bsize = bdev_hardsect_size(bdev);
++		bdev->bd_block_size = bsize;
++		inode->i_blkbits = blksize_bits(bsize);
++		inode->i_size = get_capacity(bdev->bd_disk)<<9;
++*/
++	}
++
++    get_mtd_device(bon.mtd, -1);
++
++    x1printk(("Bon: bon_open - normal exit\n"));
++    return 0;
++}
++
++static int
++bon_close(struct inode *inode, struct file *file)
++{
++	unsigned unit = iminor(inode);
++//    int minor = MINOR(inode->i_rdev);
++    struct mtd_info *mtd;
++//    partition_t *part = &bon.parts[minor];
++
++    x1printk(("Bon: bon_close - entered\n"));
++    mtd = bon.mtd;
++	if (inode->i_bdev->bd_openers > 0) {
++	    inode->i_bdev->bd_openers--;
++	    bon_bdev[unit] = NULL;
++
++    if (mtd->sync) mtd->sync(mtd);
++
++    put_mtd_device(mtd);
++    }
++    x1printk(("Bon: bon_close - normal exit\n"));
++    return 0;
++}
++
++static int
++bon_ioctl(struct inode *inode, struct file *file,
++    u_int cmd, u_long arg)
++{
++	struct block_device *bdev = inode->i_bdev;
++	unsigned unit = iminor(inode);
++//    int minor = MINOR(inode->i_rdev);
++    partition_t *part = &bon.parts[unit];
++
++    x1printk(("Bon: bon_ioctl - entered, cmd 0x%x\n", cmd));
++    switch (cmd) {
++	case BLKGETSIZE:
++	    return put_user((part->size >> 9), (long *)arg);
++#ifdef BLKGETSIZE64
++	case BLKGETSIZE64:
++	    return put_user((u64)(part->size >> 9), (long *)arg);
++#endif
++	case BLKFLSBUF:
++	    /*if (!capable(CAP_SYS_ADMIN)) return -EACCES;
++	    fsync_dev(inode->i_rdev);
++	    invalidate_buffers(inode->i_rdev);*/
++		fsync_bdev(bdev);
++		invalidate_bdev(bdev, 0);
++	    if (bon.mtd->sync) bon.mtd->sync(bon.mtd);
++	    return 0;
++	default:
++	    return -ENOTTY;
++    }
++}
++
++static struct block_device_operations bon_blk_fops = {
++    owner: THIS_MODULE,
++    open: bon_open,
++    release: bon_close,
++    ioctl: bon_ioctl
++};
++
++static int
++do_read(partition_t *part, char *buf, unsigned long pos, size_t size)
++{
++    int ret, retlen;
++    size_t i;
++//    size_t j;
++
++//    buf = &dummy_bfr1[0];
++    x1printk(("Bon: do_read - entered, part 0x%x, esize 0x%x\n", (unsigned)part, bon.mtd->erasesize));
++    while (size > 0) {
++	unsigned long block = pos / bon.mtd->erasesize;
++	unsigned long start, start_in_block;
++	size_t this_size;
++//    memset(&dummy_bfr1[0], 0xff, sizeof(dummy_bfr1));
++	x1printk(("Bon: buf 0x%x, pos 0x%lx, size 0x%x\n",
++	       (unsigned)buf, pos, size));
++
++	if (part->bad_blocks) {
++	    unsigned short *bad = part->bad_blocks;
++	    printk("Bon: bad blocks\n");
++	    while(*bad++ <= block) {
++		block++;
++	    }
++	}
++	start_in_block = pos % bon.mtd->erasesize;
++	start = block * bon.mtd->erasesize + start_in_block;
++	this_size = bon.mtd->erasesize - start_in_block;
++	if (this_size > size) this_size = size;
++	x1printk(("Bon: block 0x%lx, startib 0x%lx, start 0x%lx, thisz 0x%x, pofs 0x%lx\n",
++	       block, start_in_block, start, this_size, part->offset));
++
++	ret = bon.mtd->read(bon.mtd, part->offset + start, this_size, &retlen, buf);
++	x1printk(("Bon: norm, ret %d, retlen 0x%x\n", ret, retlen));
++	if (ret) return ret;
++	if (this_size != retlen) return -EIO;
++/*    for (j = sizeof(dummy_bfr1) - 1; j != ~0; j--) {
++	if (dummy_bfr1[j] != 0xff)
++	    break;
++	}
++	x1printk(("Bon: normal, read ~ %d bytes\n", j + 1));*/
++#if 1
++	/* ecc */
++	for (i = 0; i < this_size; /*i++*/) {
++	    unsigned char oobbuf[16];
++//	    unsigned char oobbuf[64];
++//	    unsigned char *oobbuf = &dummy_bfr2[0];
++	    unsigned char *ecc1 = oobbuf + 8, *ecc2 = ecc1 + 3;
++//	    unsigned char calc_ecc[3];
++	    unsigned char calc_ecc[32];
++	    size_t retlen;
++	    int ecc_result;
++//    memset(&dummy_bfr2[0], 0xff, sizeof(dummy_bfr2));
++	    read_oob(bon.mtd, part->offset + start + i, 16, &retlen, oobbuf);
++	    x1printk(("Bon: oob, ret %d, retlen 0x%x\n", ret, retlen));
++	    x1printk(("Bon: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
++		      oobbuf[0], oobbuf[1], oobbuf[2], oobbuf[3], oobbuf[4], oobbuf[5], oobbuf[6], oobbuf[7], 
++		      oobbuf[8], oobbuf[9], oobbuf[10], oobbuf[11], oobbuf[12], oobbuf[13], oobbuf[14], oobbuf[15]));
++    /*for (j = sizeof(dummy_bfr2) - 1; j != ~0; j--) {
++	if (dummy_bfr2[j] != 0xff)
++	    break;
++    }
++    printk("Bon: oob, read ~ %d bytes\n", j + 1);*/
++
++	    nand_calculate_ecc(bon.mtd, buf + i, calc_ecc);
++	    ecc_result = nand_correct_data(bon.mtd, buf + i, ecc1, calc_ecc);
++	    if (ecc_result == -1) {
++		printk("bon: ecc error #1, i %d, tsize %d, page = 0x%08lx\n", i, this_size, (part->offset + start + i) >> 9);
++		return -EIO;
++	    }
++	    nand_calculate_ecc(bon.mtd, buf + i + 256,  calc_ecc);
++	    ecc_result = nand_correct_data(bon.mtd, buf + i + 256, ecc2, calc_ecc);
++	    if (ecc_result == -1) {
++		printk("bon: ecc error #2, i %d, tsize %d, page = 0x%08lx\n", i, this_size, (part->offset + start + i) >> 9);
++		return -EIO;
++	    }
++
++	    i += 512;
++	}
++#endif
++	size -= this_size;
++	buf += this_size;
++	pos += this_size;
++    }
++    x1printk(("Bon: do_read - normal exit\n"));
++    return 0;
++}
++
++static void
++do_bon_request(request_queue_t *q)
++{
++    struct request *req;
++//    struct mtd_info *mtd = bon.mtd;
++    partition_t *part;
++    int rw;
++    int res;
++
++    x1printk(("Bon: do_bon_request - entered\n"));
++    while (1) {
++	//INIT_REQUEST;
++	//req = CURRENT;
++	req = elv_next_request(q);
++	if (!req) {
++	    x1printk(("Bon: do_bon_request - normal exit\n"));
++	    return;
++	}
++	//blkdev_dequeue_request(req);
++	part = req->rq_disk->private_data;
++	rw = rq_data_dir(req);
++	x1printk(("Bon: part %x rw %d sect %d nsect %u\n", (unsigned int)part, rw, (int)req->sector, req->current_nr_sectors));
++
++	if (!blk_fs_request(req)) {
++		end_request(req, 0);
++		continue;
++	}
++	if (req->current_nr_sectors << 9 > part->size) {
++		printk("do_bon_request: attempt to read past end of device!\n");
++		end_request(req, 0);
++		continue;
++	}
++	if (rw != READ && rw != WRITE) {
++		printk("do_bon_request: unknown request\n");
++		end_request(req, 0);
++		continue;
++	}
++	//spin_unlock_irq(&io_request_lock);
++	spin_unlock_irq(q->queue_lock);
++	res = 0;
++	//if (MINOR(req->rq_dev) >= bon.num_part)
++	/*if (MINOR(req->rq_disk) >= bon.num_part) {
++	    printk("bon: Unsupported devices\n");
++	    goto end_req;
++	}*/
++	//part = &bon.parts[MINOR(req->rq_dev)];
++	/*if (req->current_nr_sectors << 9 > part->size) {
++	    printk("bon: attempt to read past end of device!\n");
++	    goto end_req;
++	}*/
++	//switch (req->cmd)
++	switch (rw) {
++	    int err;
++	    case READ:
++		err = do_read(part, req->buffer, 
++			      req->sector << 9, req->current_nr_sectors << 9);
++//		err = do_read(part, req->buffer, 
++//			      req->sector << 9, req->nr_sectors << 9);
++		if (!err)
++		    res = 1;
++		break;
++	    case WRITE:
++		break;
++	}
++//end_req:
++	//spin_lock_irq(&io_request_lock);
++	spin_lock_irq(q->queue_lock);
++	//end_request(res);
++	end_request(req, res);
++    }
++}
++
++static int
++read_partition_info(struct mtd_info *mtd)
++{
++//    unsigned long offset = PARTITION_OFFSET;
++    unsigned long offset = 0xffffffff;
++    int i;
++    char buf[512];
++    unsigned char oobbuf[16];
++    unsigned int *s;
++    int retlen, k;
++    int retry_count = MAX_RETRY;
++
++    x1printk(("Bon: read_partition_info - entered, mtd 0x%x, ofs 0x%lx, size 0x%x, esize 0x%x\n",
++	   (unsigned)mtd, offset, mtd->size, mtd->erasesize));
++    mtd->size = 0x4000000;
++    if (offset > mtd->size - mtd->erasesize) 
++	offset = mtd->size - mtd->erasesize;
++
++    while(retry_count-- > 0) {
++	if (read_oob(mtd, offset, 8, &retlen, oobbuf) < 0) {
++	    goto next_block;
++	}
++	if (oobbuf[5] != 0xff) {
++	    goto next_block;
++	}
++	if (mtd->read(mtd, offset, 512, &retlen, buf) < 0) {
++	    goto next_block;
++	}
++	if (strncmp(buf, BON_MAGIC, 8) == 0) break;
++	printk("bon:cannot find partition table #1\n");
++	return -1;
++next_block:
++        offset -= mtd->erasesize;
++    }
++
++    if (retry_count <= 0) {
++	printk("bon:cannot find partition table #2\n");
++	return -1;
++    }
++
++    s = (unsigned int *)(buf + 8);
++    bon.num_part = min_t(unsigned long, *s, MAX_PART);
++    s++;
++#if 0 // bushi
++    bon.num_mtd_part = 0;
++#endif
++    bon.mtd = mtd;
++#if 0
++    bon.devfs_dir_handle = devfs_mk_dir(NULL, DEVICE_NAME, NULL);
++#endif
++    // for each partition, make 
++    for (i = 0; i < bon.num_part; i++) {
++#if 0
++	char name[8];
++#endif
++//	int num_block;
++	bon.parts[i].offset = *s++;
++	bon.parts[i].size = *s++;
++	bon.parts[i].flag = *s++;
++
++	printk("bon%d: %8.8lx-%8.8lx (%8.8lx) %8.8lx\n", i, 
++	       bon.parts[i].offset, bon.parts[i].offset + bon.parts[i].size, bon.parts[i].size, bon.parts[i].flag);
++
++	if (bon.parts[i].flag & 0x01) {
++#if 0 // bushi
++	    struct mtd_partition *mtd_part;
++	    if (bon.num_mtd_part >= MAX_MTD_PART)
++		    continue;
++	    mtd_part = &(bon.mtd_parts[bon.num_mtd_part]);
++	    mtd_part->mask_flags = 0;
++	    mtd_part->size = bon.parts[i].size;
++	    mtd_part->name = "nandflash  (bon  )";
++	    sprintf(mtd_part->name, "nandflash%d (bon%d)", bon.num_mtd_part, i);
++	    mtd_part->offset = bon.parts[i].offset;
++	    mtd_part->mtdp = &bon.shadow_mtd[bon.num_mtd_part];
++	    bon.num_mtd_part++;
++#endif
++	} else {
++#if 0
++	    sprintf(name, "%d", i);
++	    bon.parts[i].devfs_rw_handle = devfs_register(bon.devfs_dir_handle,
++		name, DEVFS_FL_DEFAULT, MAJOR_NR, i, 
++		S_IFBLK | S_IRUGO, // | S_IWUGO, /* forbid writing */
++		&bon_blk_fops, NULL);
++#endif
++	}
++    }
++
++    for (i = 0; i < bon.num_part; i++) {
++	unsigned int num_bad_block = *s++;
++	if (num_bad_block == 0) continue;
++	bon.parts[i].bad_blocks = kmalloc((1 + num_bad_block) * sizeof(unsigned short), GFP_KERNEL);
++	for (k = 0; k < num_bad_block; k++) {
++	    bon.parts[i].bad_blocks[k] = *s++;
++	}
++	bon.parts[i].bad_blocks[k] = ~0;
++    }
++
++#if 0 // bushi
++	printk("add mtd part! - start\n");
++	if (bon.num_mtd_part) {
++		add_mtd_partitions(mtd, &bon.mtd_parts[0], bon.num_mtd_part);
++	}
++	printk("add mtd part! - end\n");
++#endif
++
++    x1printk(("Bon: read_partition_info - normal exit\n"));
++    return 0;
++}
++
++static void
++bon_notify_add(struct mtd_info *mtd)
++{
++//    partition_t *part;
++//    int dev;
++    int i;
++
++    x1printk(("Bon: bon_notify_add - entered\n"));
++    if (!mtd->read_oob) return; 
++    if (bon.num_part) return;
++    if (read_partition_info(mtd)) return;
++    for (i = 0; i < bon.num_part; i++) {
++	bon_sizes[i] = bon.parts[i].size >> 10; // / 1024;
++	bon_blksizes[i] = mtd->erasesize;
++	if (bon_blksizes[i] > PAGE_SIZE) bon_blksizes[i] = PAGE_SIZE;
++    }
++    x1printk(("Bon: bon_notify_add - normal exit\n"));
++}
++
++static void
++bon_notify_remove(struct mtd_info *mtd)
++{
++#if 0
++    int i;
++#endif
++    if (!bon.num_part || bon.mtd != mtd) return;
++#if 0
++    devfs_unregister(bon.devfs_dir_handle);
++    for (i = 0; i < bon.num_part; i++) {
++	devfs_unregister(bon.parts[i].devfs_rw_handle);
++    }
++#endif
++    memset(&bon, 0, sizeof(bon));
++}
++
++static struct mtd_notifier bon_notifier = {
++    add: bon_notify_add,
++    remove: bon_notify_remove
++};
++
++static int
++init_bon(void)
++{
++	int err = -ENOMEM;
++	struct gendisk *disk;
++    int i = 0;
++
++    printk("Bon NAND flash filesystem: initializing\n");
++    memset(&bon, 0, sizeof(bon));
++/*
++    if (devfs_register_blkdev(MAJOR_NR, DEVICE_NAME, &bon_blk_fops)) {
++	printk(KERN_WARNING "bon: unable to allocate major device num\n");
++	return -EAGAIN;
++    }
++*/
++	bon_queue = blk_init_queue(do_bon_request, &bon_lock);
++//	bon_queue = blk_alloc_queue(GFP_KERNEL);
++	if (!bon_queue)
++		goto out2;
++
++	for (i = 0; i < MAX_PART; i++) {
++		bon_disks[i] = alloc_disk(1);
++		if (!bon_disks[i])
++			goto out;
++		/*bon_queue[i] = blk_init_queue(do_bon_request, &bon_lock);
++		if (!bon_queue[i]) {
++			put_disk(bon_disks[i]);
++			goto out;
++		}*/
++	}
++//	i++;
++
++	if (register_blkdev(MAJOR_NR, DEVICE_NAME)) {
++		printk(KERN_WARNING "bon: unable to allocate major device num\n");
++		err = -EIO;
++		goto out;
++	}
++
++	//devfs_mk_dir(DEVICE_NAME);
++
++/*for (i = 0; i < MAX_PART; i++) {
++    bon_blksizes[i] = 4096; //1024;
++    bon_sizes[i] = 0;
++}
++i = 0;*/
++    for (i = 0; i < MAX_PART; i++) {
++	/*struct gendisk * */disk = bon_disks[i];
++	bon_blksizes[i] = 1024; //4096; //1024;
++	bon_sizes[i] = (i == 0 ? (0x30000 >> 10) : (i == 1 ? (0x1d0000 >> 10) : (0x3dfc000 >> 10)));
++
++		//bon_queue[i] = blk_alloc_queue(GFP_KERNEL);
++		//bon_queue[i] = blk_init_queue(do_bon_request, &bon_lock);
++		//if (!bon_queue[i])
++		//	goto out_queue;
++
++		//blk_queue_make_request(bon_queue[i], &rd_make_request);
++		//blk_queue_hardsect_size(bon_queue[i], rd_blocksize);
++
++		disk->major = MAJOR_NR;
++		disk->first_minor = i;
++		disk->fops = &bon_blk_fops;
++		disk->private_data = &bon.parts[i];
++		//disk->queue = bon_queue[i];
++		disk->queue = bon_queue;
++		//disk->flags |= GENHD_FL_SUPPRESS_PARTITION_INFO;
++		sprintf(disk->disk_name, DEVICE_NAME "%d", i);
++//	set_blocksize(bon_bdev[i], bon_blksizes[unit]);
++		//sprintf(disk->devfs_name, DEVICE_NAME "/%d", i);
++		//set_capacity(disk, 0x7ffffc00ULL);  /* 1 TB */
++		set_capacity(disk, 0x04000000ULL);
++		//set_capacity(disk, 0);
++		//blk_queue_max_sectors(disk->queue, 1);
++		//add_disk(bon_disks[i]);
++    }
++
++    //blksize_size[MAJOR_NR] = bon_blksizes;
++    //blk_size[MAJOR_NR] = bon_sizes;
++
++    //blk_init_queue(BLK_DEFAULT_QUEUE(MAJOR_NR), &do_bon_request);
++    blk_queue_max_sectors(bon_queue, 1);
++    for (i = 0; i < MAX_PART; i++) {
++	add_disk(bon_disks[i]);
++    }
++    register_mtd_user(&bon_notifier);
++
++#ifdef CONFIG_PROC_FS
++	if ((proc_bon = create_proc_entry(DEVICE_NAME, 0, 0)))
++		proc_bon->read_proc = bon_read_proc;
++#endif
++
++    printk("Bon NAND flash filesystem: initialization complete\n");
++    return 0;
++//out_queue:
++//	unregister_blkdev(MAJOR_NR, DEVICE_NAME);
++ out:
++	while (i--) {
++		put_disk(bon_disks[i]);
++		//blk_cleanup_queue(bon_queue[i]);
++	}
++	blk_cleanup_queue(bon_queue);
++//	blk_put_queue(bon_queue);
++	unregister_blkdev(MAJOR_NR, DEVICE_NAME);
++ out2:
++    printk("** Bon NAND flash filesystem: error %d\n", err);
++	return err;
++}
++
++static void __exit cleanup_bon(void)
++{
++	int i;
++    unregister_mtd_user(&bon_notifier);
++	for (i = 0; i < MAX_PART; i++) {
++		struct gendisk *disk = bon_disks[i];
++		if (disk) {
++			del_gendisk(disk);
++			//blk_cleanup_queue(disk->queue);
++			put_disk(disk);
++		}
++	}
++	blk_cleanup_queue(bon_queue);
++//	blk_put_queue(bon_queue);
++	//devfs_remove(DEVICE_NAME);
++	unregister_blkdev(MAJOR_NR, DEVICE_NAME);
++    //devfs_unregister_blkdev(MAJOR_NR, DEVICE_NAME);
++    //blk_cleanup_queue(BLK_DEFAULT_QUEUE(MAJOR_NR));
++    //blksize_size[MAJOR_NR] = NULL;
++
++#ifdef CONFIG_PROC_FS
++	if (proc_bon)
++		remove_proc_entry(DEVICE_NAME, 0);
++#endif
++}
++
++#ifdef MODULE
++MODULE_PARM(PARTITION_OFFSET, "i");
++#else
++int __init part_setup(char *options)
++{
++    if (!options || !*options) return 0;
++    PARTITION_OFFSET = simple_strtoul(options, &options, 0);
++    if (*options == 'k' || *options == 'K') {
++	PARTITION_OFFSET *= 1024;
++    } else if (*options == 'm' || *options == 'M') {
++	PARTITION_OFFSET *= 1024;
++    }
++    return 0;
++}
++__setup("nand_part_offset=", part_setup);
++#endif
++
++module_init(init_bon);
++module_exit(cleanup_bon);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Hwang, Chideok <hwang@mizi.co.kr>");
++MODULE_DESCRIPTION("Simple Block Device for Nand Flash");
++
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/mtd/nand/Kconfig linux-2.6.20.1/drivers/mtd/nand/Kconfig
+--- linux-2.6.20.1-org/drivers/mtd/nand/Kconfig	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/mtd/nand/Kconfig	2008-01-25 11:21:00.000000000 -0800
+@@ -130,6 +130,12 @@ config MTD_NAND_S3C2410_HWECC
+ 	  currently not be able to switch to software, as there is no
+ 	  implementation for ECC method used by the S3C2410
+ 
++config MTD_NAND_BONFS
++	tristate "Simple Block Device for Nand Flash (BON FS)"
++	depends on MTD_NAND_S3C2410
++	help
++	  This enables Bon FS support.
++
+ config MTD_NAND_NDFC
+ 	tristate "NDFC NanD Flash Controller"
+ 	depends on MTD_NAND && 44x
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/mtd/nand/Makefile linux-2.6.20.1/drivers/mtd/nand/Makefile
+--- linux-2.6.20.1-org/drivers/mtd/nand/Makefile	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/mtd/nand/Makefile	2008-01-25 11:21:00.000000000 -0800
+@@ -15,6 +15,7 @@ obj-$(CONFIG_MTD_NAND_EDB7312)		+= edb73
+ obj-$(CONFIG_MTD_NAND_AU1550)		+= au1550nd.o
+ obj-$(CONFIG_MTD_NAND_PPCHAMELEONEVB)	+= ppchameleonevb.o
+ obj-$(CONFIG_MTD_NAND_S3C2410)		+= s3c2410.o
++obj-$(CONFIG_MTD_NAND_BONFS)           += bon.o
+ obj-$(CONFIG_MTD_NAND_DISKONCHIP)	+= diskonchip.o
+ obj-$(CONFIG_MTD_NAND_H1900)		+= h1910.o
+ obj-$(CONFIG_MTD_NAND_RTC_FROM4)	+= rtc_from4.o
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/mtd/nand/s3c2410.c linux-2.6.20.1/drivers/mtd/nand/s3c2410.c
+--- linux-2.6.20.1-org/drivers/mtd/nand/s3c2410.c	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/mtd/nand/s3c2410.c	2008-02-22 12:42:46.000000000 -0800
+@@ -154,6 +154,8 @@ static inline int allow_clk_stop(struct 
+ 
+ #define NS_IN_KHZ 1000000
+ 
++//YR
++//#ifndef CONFIG_MACH_IPMATE
+ static int s3c_nand_calc_rate(int wanted, unsigned long clk, int max)
+ {
+ 	int result;
+@@ -173,11 +175,15 @@ static int s3c_nand_calc_rate(int wanted
+ 
+ 	return result;
+ }
++//YR
++//#endif
+ 
+ #define to_ns(ticks,clk) (((ticks) * NS_IN_KHZ) / (unsigned int)(clk))
+ 
+ /* controller setup */
+ 
++//YR
++//#ifndef CONFIG_MACH_IPMATE
+ static int s3c2410_nand_inithw(struct s3c2410_nand_info *info,
+ 			       struct platform_device *pdev)
+ {
+@@ -234,6 +240,8 @@ static int s3c2410_nand_inithw(struct s3
+ 	writel(cfg, info->regs + S3C2410_NFCONF);
+ 	return 0;
+ }
++//YR
++//#endif
+ 
+ /* select chip */
+ 
+@@ -572,7 +580,11 @@ static void s3c2410_nand_init_chip(struc
+ 
+ 		}
+ 	} else {
++#ifdef CONFIG_MACH_IPMATE
++		chip->ecc.mode	    = NAND_ECC_NONE;
++#else
+ 		chip->ecc.mode	    = NAND_ECC_SOFT;
++#endif
+ 	}
+ }
+ 
+@@ -651,11 +663,13 @@ static int s3c24xx_nand_probe(struct pla
+ 	dev_dbg(&pdev->dev, "mapped registers at %p\n", info->regs);
+ 
+ 	/* initialise the hardware */
+-
++//YR
++#ifndef CONFIG_MACH_IPMATE
+ 	err = s3c2410_nand_inithw(info, pdev);
+ 	if (err != 0)
+ 		goto exit_error;
+-
++//YR
++#endif
+ 	sets = (plat != NULL) ? plat->sets : NULL;
+ 	nr_sets = (plat != NULL) ? plat->nr_sets : 1;
+ 
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/net/cs8900a.c linux-2.6.20.1/drivers/net/cs8900a.c
+--- linux-2.6.20.1-org/drivers/net/cs8900a.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/drivers/net/cs8900a.c	2008-02-27 12:19:48.000000000 -0800
+@@ -0,0 +1,1013 @@
++/*
++ * cs8900a.c: A Crystal Semiconductor (Now Cirrus Logic) CS8900A
++		driver for SMDK-s3c2410 (based on cs89x0.c)
++ *
++ * Author: Yong-iL Joh <tolkien@mizi.com>
++ * Date  : $Date: 2004/02/04 12:56:28 $
++ *
++ * $Revision: 1.1.1.1 $
++
++   Wed Aug 14 2002 Yong-iL Joh <tolkien@mizi.com>
++   - initial, based on cs89x0.c
++
++   Wed Aug 16 2002 Yong-iL Joh <tolkien@mizi.com>
++   - working!
++
++ *
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file COPYING in the main directory of this archive
++ * for more details.
++ */
++
++#include <linux/module.h>
++
++/*
++ * Set this to zero to remove all the debug statements via
++ * dead code elimination
++ */
++#define DEBUGGING	0
++//#undef DEBUGGING
++#if DEBUGGING
++#define DPRINTK(n, args...)	\
++	if (n <= DEBUGGING) {	\
++		printk(args);	\
++	}
++#else
++#define DPRINTK(n, args...)
++#endif
++
++#include <linux/kernel.h>
++#include <linux/bitops.h>
++#include <linux/errno.h>
++#include <linux/fcntl.h>
++#include <linux/in.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/ioport.h>
++#include <linux/netdevice.h>
++#include <linux/etherdevice.h>
++#include <linux/skbuff.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/string.h>
++#include <linux/types.h>
++
++#include <asm/io.h>
++//YR - Start
++#include <linux/irq.h>
++#include <asm/irq.h>
++#include <asm/arch/irqs.h>
++//YR - End
++#include <asm/arch/regs-mem.h>
++
++#define IRQ_LAN		IPMATE_IRQ_CS8900
++#include "cs89x0.h"
++
++#if DEBUGGING
++static char version[] __initdata =
++"cs8900a.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew Morton <andrewm@uow.edu.au>\n";
++#endif
++
++#define DRV_NAME "cs8900a"
++
++/* First, a few definitions that the brave might change.
++   A zero-terminated list of I/O addresses to be probed. Some special flags..
++      Addr & 1 = Read back the address port, look for signature and reset
++                 the page window before probing
++      Addr & 3 = Reset the page window and probe
++   The CLPS eval board has the Cirrus chip at 0x80090300, in ARM IO space,
++   but it is possible that a Cirrus board could be plugged into the ISA
++   slots. */
++#ifndef MODULE
++static unsigned int netcard_portlist[] __initdata =
++   { (u32)IPMATE_VA_CS8900A + 0x300, 0 };
++#endif
++
++/* The number of low I/O ports used by the ethercard. */
++//#define NETCARD_IO_EXTENT	0xfff
++#define NETCARD_IO_EXTENT	0x1000
++
++/* we allow the user to override various values normally set in the EEPROM */
++#define FORCE_RJ45	0x0001    /* pick one of these three */
++#define FORCE_AUI	0x0002
++#define FORCE_BNC	0x0004
++
++#define FORCE_AUTO	0x0010    /* pick one of these three */
++#define FORCE_HALF	0x0020
++#define FORCE_FULL	0x0030
++
++/* Information that need to be kept for each board. */
++struct net_local {
++	struct net_device_stats stats;
++	int chip_type;		/* one of: CS8900, CS8920, CS8920M */
++	char chip_revision;	/* revision letter of the chip ('A'...) */
++	int send_cmd;		/* the proper send command:
++				   TX_NOW, TX_AFTER_381, or TX_AFTER_ALL */
++	int auto_neg_cnf;	/* auto-negotiation word from EEPROM */
++	int adapter_cnf;	/* adapter configuration from EEPROM */
++	int isa_config;		/* ISA configuration from EEPROM */
++	int irq_map;		/* IRQ map from EEPROM */
++	int rx_mode;		/* what mode are we in?
++				   0, RX_MULTCAST_ACCEPT, or RX_ALL_ACCEPT */
++	int curr_rx_cfg;	/* a copy of PP_RxCFG */
++	int linectl;		/* either 0 or LOW_RX_SQUELCH,
++				   depending on configuration. */
++	int send_underrun;	/* keep track of how many underruns
++				   in a row we get */
++	int force;		/* force various values; see FORCE* above. */
++	spinlock_t lock;
++};
++
++/* Function prototypes. */
++
++static int cs8900a_probe1(struct net_device *dev, int ioaddr, int modular);
++static int net_open(struct net_device *dev);
++static int net_send_packet(struct sk_buff *skb, struct net_device *dev);
++static irqreturn_t net_interrupt(int irq, void *dev_id);
++static void set_multicast_list(struct net_device *dev);
++static void net_timeout(struct net_device *dev);
++static void net_rx(struct net_device *dev);
++static int net_close(struct net_device *dev);
++static struct net_device_stats *net_get_stats(struct net_device *dev);
++static void reset_chip(struct net_device *dev);
++static int set_mac_address(struct net_device *dev, void *p);
++static void count_rx_errors(int status, struct net_local *lp);
++
++/* Example routines you must write ;->. */
++#define tx_done(dev)	1
++
++static unsigned long cs8900a_hwaddr = 0xc0ffee08;
++module_param_named(cs8900a_hwaddr, cs8900a_hwaddr, ulong, 0);
++MODULE_PARM_DESC(cs8900a_hwaddr, "CS8900A hardware address.");
++
++#ifndef MODULE
++static int g_cs8900a_media_force;
++
++static int __init media_fn(char *str)
++{
++    if (strcmp(str, "rj45") == 0) g_cs8900a_media_force = FORCE_RJ45;
++    else if (strcmp(str, "aui") == 0) g_cs8900a_media_force = FORCE_AUI;
++    else if (strcmp(str, "bnc") == 0) g_cs8900a_media_force = FORCE_BNC;
++    return 1;
++}
++
++__setup("cs8900a_media=", media_fn);
++
++static int __init hwaddr_fn(char *str)
++{
++    if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
++	str += 2;
++    cs8900a_hwaddr = simple_strtoul(str, &str, 16);
++    printk("cs8900a_hwaddr=%08lx\n", cs8900a_hwaddr);
++    return 1;
++}
++
++__setup("cs8900a_hwaddr=", hwaddr_fn);
++
++/* Check for a network adaptor of this type.
++   If dev->base_addr == 0, probe all likely locations.
++   If dev->base_addr == 1, always return failure.
++   If dev->base_addr == 2, allocate space for the device and return success
++   (detachable devices only).
++   Return net_device* on success.
++   */
++struct net_device * __init cs8900a_probe(int unit)
++{
++    struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++    int err = 0;
++    int irq;
++    int io;
++    int i;
++    static int probed;
++
++    if (!dev)
++	return ERR_PTR(-ENODEV);
++
++    if (probed) {
++	free_netdev(dev);
++	return ERR_PTR(-ENODEV);
++    }
++
++    probed = 1;
++    sprintf(dev->name, "eth%d", unit);
++    netdev_boot_setup_check(dev);
++    io = dev->base_addr;
++    irq = dev->irq;
++
++    DPRINTK(1, "cs8900a:cs8900a_probe(0x%lx)\n", dev->base_addr);
++
++    __raw_writel((__raw_readl(S3C2410_BWSCON) & ~S3C2410_BWSCON_DW3_32) |
++	S3C2410_BWSCON_ST3 | S3C2410_BWSCON_WS3 | S3C2410_BWSCON_DW3_16, S3C2410_BWSCON);
++
++    __raw_writel(S3C2410_BANKCON_Tacs0 | S3C2410_BANKCON_Tcos4 | S3C2410_BANKCON_Tacc14 |
++	S3C2410_BANKCON_Tcoh1 | S3C2410_BANKCON_Tcah4 | S3C2410_BANKCON_Tacp6 |
++	S3C2410_BANKCON_PMC16, S3C2410_BANKCON3);
++
++//YR - Uncommented next line
++    set_irq_type(IPMATE_IRQ_CS8900, IRQT_RISING);
++
++    for (i = 0; netcard_portlist[i]; i++) {
++	if (cs8900a_probe1(dev, netcard_portlist[i], 0) == 0)
++	    break;
++	dev->irq = irq;
++    }
++
++    //printk("3");
++
++    if (!netcard_portlist[i])
++	err = -ENODEV;
++    if (err)
++	goto out;
++
++    //printk("4");
++    err = register_netdev(dev);
++    //printk("5");
++    if (err)
++	goto out1;
++
++    //printk("6");
++    return dev;
++ out1:
++    //printk("7");
++    outw(PP_ChipID, dev->base_addr + ADD_PORT);
++    //release_region(dev->base_addr & ~3, NETCARD_IO_EXTENT);
++ out:
++    //printk("8");
++    free_netdev(dev);
++    printk(KERN_WARNING "cs8900a: no cs8900 or cs8920 detected. "
++	   "Be sure to disable PnP with SETUP\n");
++    return ERR_PTR(err);
++}
++#endif
++
++inline int readreg(struct net_device *dev, int portno)
++{
++    outw(portno, dev->base_addr + ADD_PORT);
++    return inw(dev->base_addr + DATA_PORT);
++}
++
++inline void writereg(struct net_device *dev, int portno, int value)
++{
++    outw(portno, dev->base_addr + ADD_PORT);
++    outw(value, dev->base_addr + DATA_PORT);
++}
++
++inline int readword(struct net_device *dev, int portno)
++{
++  return inw(dev->base_addr + portno);
++}
++
++inline void writeword(struct net_device *dev, int portno, int value)
++{
++    outw(value, dev->base_addr + portno);
++}
++
++inline void writeblock(struct net_device *dev, char *pData, int Length)
++{
++    int i;
++
++    for (i = 0 ; i < (Length/2); i++) {
++	writeword(dev, TX_FRAME_PORT, *(u16 *)pData );
++	pData += 2;
++    }
++
++    if (Length % 2) {
++	u16 OddWordValue = *pData;
++	writeword(dev, TX_FRAME_PORT, OddWordValue);
++    }
++}
++
++inline void readblock(struct net_device *dev, char *pData, int Length)
++{
++    u16 InputWord;
++    int i;
++
++    for (i=0; i < (Length/2); i++) {
++	InputWord = readword(dev, RX_FRAME_PORT);
++	*(u8*)pData++ = (u8) InputWord & 0xFF;
++	*(u8*)pData++ = (u8) (InputWord >> 8) & 0xFF;
++    }
++
++    if (Length & 0x1)
++	*pData = (u8) (readword(dev, RX_FRAME_PORT) & 0xff);
++}
++
++/* This is the real probe routine.  Linux has a history of friendly device
++   probes on the ISA bus.  A good device probes avoids doing writes, and
++   verifies that the correct device exists and functions.
++   Return 0 on success.
++ */
++
++static int __init cs8900a_probe1(struct net_device *dev, int ioaddr, int modular)
++{
++    struct net_local *lp = netdev_priv(dev);
++#if DEBUGGING
++    static unsigned version_printed;
++#endif
++    unsigned rev_type = 0;
++    int i;
++    int ret;
++
++    DPRINTK(1, "cs8900a: cs8900a_probe1 - 0x%x\n", ioaddr);
++    SET_MODULE_OWNER(dev);
++
++    //printk("1 - 0");
++
++    /* Initialize the device structure. */
++    if (!modular) {
++	memset(lp, 0, sizeof(*lp));
++	spin_lock_init(&lp->lock);
++#ifndef MODULE
++	lp->force = g_cs8900a_media_force;
++#endif
++    }
++    //printk("1 - 1\n");
++
++    /*if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, DRV_NAME)) {
++	printk(KERN_ERR "%s: request_region(0x%x, 0x%x) failed\n",
++	       DRV_NAME, ioaddr & ~3, NETCARD_IO_EXTENT);
++	ret = -EBUSY;
++	goto out2;
++    }*/
++
++    /* Fill in the 'dev' fields. */
++    dev->base_addr = ioaddr;
++
++    //printk("1 - 2\n");
++
++    /*  Bus Reset Consideration  */
++    ret = readword(dev, ADD_PORT);
++    if ((ret & ADD_MASK) != ADD_SIG) {
++	DPRINTK(1, "cs8900a: cs8900a_probe1 - 0x%08X\n", ret);
++	ret = -ENODEV;
++	goto out;
++    }
++
++    //printk("1 - 3\n");
++
++    /* get the chip type */
++    rev_type = readreg(dev, PRODUCT_ID_ADD);
++    lp->chip_type = rev_type &~ REVISON_BITS;
++    lp->chip_revision = ((rev_type & REVISON_BITS) >> 8) + 'A';
++
++    //printk("1 - 4\n");
++
++#if DEBUGGING
++    if (version_printed++ == 0)
++	printk(version);
++#endif
++
++    printk(KERN_INFO "%s: cs89%c0%s rev %c(%s) found at %#3lx\n",
++	   dev->name,
++	   lp->chip_type==CS8900 ? '0' : '2',
++	   lp->chip_type==CS8920M ? "M" : "",
++	   lp->chip_revision,
++	   readreg(dev, PP_SelfST) & ACTIVE_33V ? "3.3 Volts" : "5 Volts",
++	   dev->base_addr);
++    if (lp->chip_type != CS8900) {
++	printk(__FILE__ ": wrong device driver!\n");
++	ret = -ENODEV;
++	goto out;
++    }
++
++    //printk("1 - 5");
++
++    /* Check the chip type and revision in order to
++       set the correct send command
++       CS8900 revision F can use the faster send. */
++    lp->send_cmd = TX_AFTER_ALL;
++    if (lp->chip_type == CS8900 && lp->chip_revision >= 'F')
++	lp->send_cmd = TX_NOW;
++
++    //printk("1 - 6");
++    reset_chip(dev);
++
++    //printk("1 - 7");
++    lp->adapter_cnf = A_CNF_10B_T | A_CNF_MEDIA_10B_T;
++    lp->auto_neg_cnf = EE_AUTO_NEG_ENABLE;
++
++    //printk("1 - 8");
++    printk(KERN_INFO "cs8900a media %s%s",
++	   (lp->adapter_cnf & A_CNF_10B_T)?"RJ-45":"",
++	   (lp->adapter_cnf & A_CNF_AUI)?"AUI":"");
++
++    /*dev->dev_addr[0] = 0x00;
++    dev->dev_addr[1] = 0x00;
++    dev->dev_addr[2] = 0xc0;
++    dev->dev_addr[3] = 0xff;
++    dev->dev_addr[4] = 0xee;
++    dev->dev_addr[5] = 0x08;*/
++    dev->dev_addr[0] = 0x00;
++ #if 0
++    dev->dev_addr[1] = 0xc0;
++    dev->dev_addr[2] = 0xff;
++    dev->dev_addr[3] = 0xee;
++    dev->dev_addr[4] = 0x08;
++ #else
++    dev->dev_addr[1] = (cs8900a_hwaddr >> 24) & 0xff;
++    dev->dev_addr[2] = (cs8900a_hwaddr >> 16) & 0xff;
++    dev->dev_addr[3] = (cs8900a_hwaddr >> 8) & 0xff;
++    dev->dev_addr[4] = cs8900a_hwaddr & 0xff;
++ #endif
++
++    //printk("1 - 9");
++    dev->dev_addr[5] = 0x00;
++    set_mac_address(dev, NULL);
++
++    //printk("1 - 10");
++    dev->irq = IRQ_LAN;
++    printk(", IRQ %d", dev->irq);
++
++    //printk("1 - 11");
++    /* print the ethernet address. */
++    printk(", MAC");
++    for (i = 0; i < ETH_ALEN; i++) {
++	printk("%c%02x", i ? ':' : ' ', dev->dev_addr[i]);
++    }
++
++    //printk("1 - 12");
++    dev->open			= net_open;
++    dev->stop			= net_close;
++    dev->tx_timeout		= net_timeout;
++    dev->watchdog_timeo		= 3 * HZ;
++    dev->hard_start_xmit	= net_send_packet;
++    dev->get_stats		= net_get_stats;
++    dev->set_multicast_list	= set_multicast_list;
++    dev->set_mac_address	= set_mac_address;
++
++    /* Fill in the fields of the device structure with ethernet values. */
++//    ether_setup(dev);
++
++    printk("\n");
++    DPRINTK(1, "cs8900a_probe1() successful\n");
++    return 0;
++
++ out:
++    //release_region(ioaddr & ~3, NETCARD_IO_EXTENT);
++// out2:
++    return ret;
++}
++
++void  __init reset_chip(struct net_device *dev)
++{
++    int reset_start_time;
++
++    writereg(dev, PP_SelfCTL, readreg(dev, PP_SelfCTL) | POWER_ON_RESET);
++
++    /* wait 30 ms */
++    current->state = TASK_INTERRUPTIBLE;
++    schedule_timeout(30*HZ/1000);
++
++    /* Wait until the chip is reset */
++    reset_start_time = jiffies;
++    while( (readreg(dev, PP_SelfST) & INIT_DONE) == 0 &&
++	   jiffies - reset_start_time < 4)
++	;
++}
++
++/* Open/initialize the board.  This is called (in the current kernel)
++   sometime after booting when the 'ifconfig' program is run.
++
++   This routine should set everything up anew at each open, even
++   registers that "should" only need to be set once at boot, so that
++   there is non-reboot way to recover if something goes wrong.
++   */
++static int net_open(struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++    int ret;
++
++    /* Prevent the crystal chip from generating interrupts */
++    writereg(dev, PP_BusCTL, readreg(dev, PP_BusCTL) & ~ENABLE_IRQ);
++    ret = request_irq(dev->irq, &net_interrupt, SA_SHIRQ, dev->name, dev);
++    if (ret) {
++	printk("%s: request_irq(%d) failed\n", dev->name, dev->irq);
++	goto bad_out;
++    }
++    /* Set up the IRQ - Apparently magic */
++    if (lp->chip_type == CS8900)
++	writereg(dev, PP_CS8900_ISAINT, 0);
++    else
++	writereg(dev, PP_CS8920_ISAINT, 0);
++
++    /* while we're testing the interface, leave interrupts disabled */
++    writereg(dev, PP_BusCTL, MEMORY_ON);
++
++    /* Set the LineCTL quintuplet */
++    lp->linectl = 0;
++
++    /* Turn on both receive and transmit operations */
++    writereg(dev, PP_LineCTL,
++	     readreg(dev, PP_LineCTL) | SERIAL_RX_ON | SERIAL_TX_ON);
++
++    /* Receive only error free packets addressed to this card */
++    lp->rx_mode = 0;
++    writereg(dev, PP_RxCTL, DEF_RX_ACCEPT);
++
++    lp->curr_rx_cfg = RX_OK_ENBL | RX_CRC_ERROR_ENBL;
++
++    if (lp->isa_config & STREAM_TRANSFER)
++	lp->curr_rx_cfg |= RX_STREAM_ENBL;
++    writereg(dev, PP_RxCFG, lp->curr_rx_cfg);
++
++    writereg(dev, PP_TxCFG,
++	     TX_LOST_CRS_ENBL | TX_SQE_ERROR_ENBL | TX_OK_ENBL |
++	     TX_LATE_COL_ENBL | TX_JBR_ENBL |
++	     TX_ANY_COL_ENBL | TX_16_COL_ENBL);
++
++    writereg(dev, PP_BufCFG,
++	     READY_FOR_TX_ENBL | RX_MISS_COUNT_OVRFLOW_ENBL |
++	     TX_COL_COUNT_OVRFLOW_ENBL | TX_UNDERRUN_ENBL);
++
++    /* now that we've got our act together, enable everything */
++    writereg(dev, PP_BusCTL, readreg(dev, PP_BusCTL) | ENABLE_IRQ);
++//    enable_irq(dev->irq);
++
++    netif_start_queue(dev);
++    DPRINTK(1, "cs8900a: net_open() succeeded\n");
++    return 0;
++
++ bad_out:
++    return ret;
++}
++
++static void net_timeout(struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++
++  /* If we get here, some higher level has decided we are broken.
++     There should really be a "kick me" function call instead. */
++    DPRINTK(1, "%s: transmit timed out, %s?\n", dev->name,
++	    tx_done(dev) ? "IRQ conflict ?" : "network cable problem");
++    /* Try to restart the adaptor. */
++    //netif_wake_queue(dev);
++    //net_close(dev);
++    netif_stop_queue(dev);
++
++    writereg(dev, PP_RxCFG, 0);
++    writereg(dev, PP_TxCFG, 0);
++    writereg(dev, PP_BufCFG, 0);
++    writereg(dev, PP_BusCTL, 0);
++
++    writereg(dev, PP_SelfCTL, readreg(dev, PP_SelfCTL) | POWER_ON_RESET);
++    //net_open(dev);
++
++    /* Prevent the crystal chip from generating interrupts */
++    writereg(dev, PP_BusCTL, readreg(dev, PP_BusCTL) & ~ENABLE_IRQ);
++
++    /* Set up the IRQ - Apparently magic */
++    if (lp->chip_type == CS8900)
++	writereg(dev, PP_CS8900_ISAINT, 0);
++    else
++	writereg(dev, PP_CS8920_ISAINT, 0);
++
++    /* while we're testing the interface, leave interrupts disabled */
++    writereg(dev, PP_BusCTL, MEMORY_ON);
++
++    /* Set the LineCTL quintuplet */
++    lp->linectl = 0;
++
++    /* Turn on both receive and transmit operations */
++    writereg(dev, PP_LineCTL,
++	     readreg(dev, PP_LineCTL) | SERIAL_RX_ON | SERIAL_TX_ON);
++
++    /* Receive only error free packets addressed to this card */
++    lp->rx_mode = 0;
++    writereg(dev, PP_RxCTL, DEF_RX_ACCEPT);
++
++    lp->curr_rx_cfg = RX_OK_ENBL | RX_CRC_ERROR_ENBL;
++
++    if (lp->isa_config & STREAM_TRANSFER)
++	lp->curr_rx_cfg |= RX_STREAM_ENBL;
++    writereg(dev, PP_RxCFG, lp->curr_rx_cfg);
++
++    writereg(dev, PP_TxCFG,
++	     TX_LOST_CRS_ENBL | TX_SQE_ERROR_ENBL | TX_OK_ENBL |
++	     TX_LATE_COL_ENBL | TX_JBR_ENBL |
++	     TX_ANY_COL_ENBL | TX_16_COL_ENBL);
++
++    writereg(dev, PP_BufCFG,
++	     READY_FOR_TX_ENBL | RX_MISS_COUNT_OVRFLOW_ENBL |
++	     TX_COL_COUNT_OVRFLOW_ENBL | TX_UNDERRUN_ENBL);
++
++    /* now that we've got our act together, enable everything */
++    writereg(dev, PP_BusCTL, readreg(dev, PP_BusCTL) | ENABLE_IRQ);
++//    enable_irq(dev->irq);
++
++    netif_start_queue(dev);
++}
++
++static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++
++    writereg(dev, PP_BusCTL, 0x0);
++    writereg(dev, PP_BusCTL, readreg(dev, PP_BusCTL) | ENABLE_IRQ);
++
++    DPRINTK(3, "%s: sent %d byte packet of type %x\n",
++	    dev->name, skb->len,
++	    (skb->data[ETH_ALEN+ETH_ALEN] << 8) |
++	    (skb->data[ETH_ALEN+ETH_ALEN+1]));
++
++    /* keep the upload from being interrupted, since we
++       ask the chip to start transmitting before the
++       whole packet has been completely uploaded. */
++
++    spin_lock_irq(&lp->lock);
++    netif_stop_queue(dev);
++
++    /* initiate a transmit sequence */
++    writeword(dev, TX_CMD_PORT, lp->send_cmd);
++    writeword(dev, TX_LEN_PORT, skb->len);
++
++    /* Test to see if the chip has allocated memory for the packet */
++    if ((readreg(dev, PP_BusST) & READY_FOR_TX_NOW) == 0) {
++	/*
++	 * Gasp!  It hasn't.  But that shouldn't happen since
++	 * we're waiting for TxOk, so return 1 and requeue this packet.
++	 */
++
++	spin_unlock_irq(&lp->lock);
++	DPRINTK(1, "cs8900a: Tx buffer not free!\n");
++	return 1;
++    }
++    /* Write the contents of the packet */
++    writeblock(dev, skb->data, skb->len);
++
++    spin_unlock_irq(&lp->lock);
++    dev->trans_start = jiffies;
++    dev_kfree_skb (skb);
++
++    /*
++     * We DO NOT call netif_wake_queue() here.
++     * We also DO NOT call netif_start_queue().
++     *
++     * Either of these would cause another bottom half run through
++     * net_send_packet() before this packet has fully gone out.  That causes
++     * us to hit the "Gasp!" above and the send is rescheduled.  it runs like
++     * a dog.  We just return and wait for the Tx completion interrupt handler
++     * to restart the netdevice layer
++     */
++
++    return 0;
++}
++
++/* The typical workload of the driver:
++   Handle the network interface interrupts. */
++
++static irqreturn_t net_interrupt(int irq, void *dev_id)
++{
++    struct net_device *dev = dev_id;
++    struct net_local *lp;
++    int ioaddr, status;
++    int handled = 0;
++
++    ioaddr = dev->base_addr;
++    lp = netdev_priv(dev);
++
++    /* we MUST read all the events out of the ISQ, otherwise we'll never
++       get interrupted again.  As a consequence, we can't have any limit
++       on the number of times we loop in the interrupt handler.  The
++       hardware guarantees that eventually we'll run out of events.  Of
++       course, if you're on a slow machine, and packets are arriving
++       faster than you can read them off, you're screwed.  Hasta la
++       vista, baby!  */
++    while ((status = readword(dev, ISQ_PORT))) {
++      DPRINTK(4, "%s: event=%04x\n", dev->name, status);
++      handled = 1;
++      switch(status & ISQ_EVENT_MASK) {
++      case ISQ_RECEIVER_EVENT:
++	/* Got a packet(s). */
++	net_rx(dev);
++	break;
++      case ISQ_TRANSMITTER_EVENT:
++	lp->stats.tx_packets++;
++	netif_wake_queue(dev);	/* Inform upper layers. */
++	if ((status & (	TX_OK |
++			TX_LOST_CRS | TX_SQE_ERROR |
++			TX_LATE_COL | TX_16_COL)) != TX_OK) {
++	  if ((status & TX_OK) == 0) lp->stats.tx_errors++;
++	  if (status & TX_LOST_CRS) lp->stats.tx_carrier_errors++;
++	  if (status & TX_SQE_ERROR) lp->stats.tx_heartbeat_errors++;
++	  if (status & TX_LATE_COL) lp->stats.tx_window_errors++;
++	  if (status & TX_16_COL) lp->stats.tx_aborted_errors++;
++	}
++	break;
++      case ISQ_BUFFER_EVENT:
++	if (status & READY_FOR_TX) {
++	  /* we tried to transmit a packet earlier,
++	     but inexplicably ran out of buffers.
++	     That shouldn't happen since we only ever
++	     load one packet.  Shrug.  Do the right
++	     thing anyway. */
++	  netif_wake_queue(dev);	/* Inform upper layers. */
++	}
++	if (status & TX_UNDERRUN) {
++	  DPRINTK(1, "%s: transmit underrun\n", dev->name);
++	  lp->send_underrun++;
++	  if (lp->send_underrun == 3)		lp->send_cmd = TX_AFTER_381;
++	  else if (lp->send_underrun == 6)	lp->send_cmd = TX_AFTER_ALL;
++	  /* transmit cycle is done, although
++	     frame wasn't transmitted - this
++	     avoids having to wait for the upper
++	     layers to timeout on us, in the
++	     event of a tx underrun */
++	  netif_wake_queue(dev);	/* Inform upper layers. */
++	}
++	break;
++      case ISQ_RX_MISS_EVENT:
++	lp->stats.rx_missed_errors += (status >>6);
++	break;
++      case ISQ_TX_COL_EVENT:
++	lp->stats.collisions += (status >>6);
++	break;
++      }
++    }
++    return IRQ_RETVAL(handled);
++}
++
++static void count_rx_errors(int status, struct net_local *lp)
++{
++    lp->stats.rx_errors++;
++    if (status & RX_RUNT) lp->stats.rx_length_errors++;
++    if (status & RX_EXTRA_DATA) lp->stats.rx_length_errors++;
++    if (status & RX_CRC_ERROR) if (!(status & (RX_EXTRA_DATA|RX_RUNT)))
++	/* per str 172 */
++	lp->stats.rx_crc_errors++;
++    if (status & RX_DRIBBLE) lp->stats.rx_frame_errors++;
++}
++
++/* We have a good packet(s), get it/them out of the buffers. */
++static void net_rx(struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++    struct sk_buff *skb;
++    int status, length;
++
++    int ioaddr = dev->base_addr;
++
++    status = inw(ioaddr + RX_FRAME_PORT);
++    if ((status & RX_OK) == 0) {
++	count_rx_errors(status, lp);
++	return;
++    }
++
++    length = inw(ioaddr + RX_FRAME_PORT);
++
++    /* Malloc up new buffer. */
++    skb = dev_alloc_skb(length + 2);
++    if (skb == NULL) {
++	lp->stats.rx_dropped++;
++	return;
++    }
++    skb_reserve(skb, 2);	/* longword align L3 header */
++    skb->len = length;
++    skb->dev = dev;
++    readblock(dev, skb->data, skb->len);
++
++    DPRINTK(3, "%s: received %d byte packet of type %x\n",
++	    dev->name, length,
++	    (skb->data[ETH_ALEN+ETH_ALEN] << 8) | skb->data[ETH_ALEN+ETH_ALEN+1]);
++
++    skb->protocol=eth_type_trans(skb,dev);
++    netif_rx(skb);
++    dev->last_rx = jiffies;
++    lp->stats.rx_packets++;
++    lp->stats.rx_bytes += length;
++}
++
++/* The inverse routine to net_open(). */
++static int net_close(struct net_device *dev)
++{
++    netif_stop_queue(dev);
++
++    writereg(dev, PP_RxCFG, 0);
++    writereg(dev, PP_TxCFG, 0);
++    writereg(dev, PP_BufCFG, 0);
++    writereg(dev, PP_BusCTL, 0);
++
++    free_irq(dev->irq, dev);
++
++    /* Update the statistics here. */
++    return 0;
++}
++
++/* Get the current statistics.	This may be called with the card open or
++   closed. */
++static struct net_device_stats *
++net_get_stats(struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++    unsigned long flags;
++
++    spin_lock_irqsave(&lp->lock, flags);
++    /* Update the statistics from the device registers. */
++    lp->stats.rx_missed_errors += (readreg(dev, PP_RxMiss) >> 6);
++    lp->stats.collisions += (readreg(dev, PP_TxCol) >> 6);
++    spin_unlock_irqrestore(&lp->lock, flags);
++
++    return &lp->stats;
++}
++
++static void set_multicast_list(struct net_device *dev)
++{
++    struct net_local *lp = netdev_priv(dev);
++    unsigned long flags;
++
++    spin_lock_irqsave(&lp->lock, flags);
++    if (dev->flags&IFF_PROMISC) {
++	lp->rx_mode = RX_ALL_ACCEPT;
++    } else if((dev->flags&IFF_ALLMULTI)||dev->mc_list) {
++	/* The multicast-accept list is initialized to accept-all,
++	   and we rely on higher-level filtering for now. */
++	lp->rx_mode = RX_MULTCAST_ACCEPT;
++    } else
++	lp->rx_mode = 0;
++
++    writereg(dev, PP_RxCTL, DEF_RX_ACCEPT | lp->rx_mode);
++
++    /* in promiscuous mode, we accept errored packets,
++       so we have to enable interrupts on them also */
++    writereg(dev, PP_RxCFG, lp->curr_rx_cfg |
++	     (lp->rx_mode == RX_ALL_ACCEPT ?
++	      (RX_CRC_ERROR_ENBL|RX_RUNT_ENBL|RX_EXTRA_DATA_ENBL) : 0));
++    spin_unlock_irqrestore(&lp->lock, flags);
++}
++
++
++static int set_mac_address(struct net_device *dev, void *p)
++{
++    int i;
++    struct sockaddr *addr = p;
++
++    if (netif_running(dev))
++	return -EBUSY;
++
++    if (addr)
++	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
++
++    DPRINTK(1, "%s: Setting MAC address to ", dev->name);
++    for (i = 0; i < dev->addr_len; i++) {
++	DPRINTK(1, " %2.2x", dev->dev_addr[i]);
++    }
++    DPRINTK(1, ".\n");
++
++    /* set the Ethernet address */
++    for (i = 0; i < ETH_ALEN/2; i++)
++	writereg(dev, PP_IA+i*2, dev->dev_addr[i*2] | (dev->dev_addr[i*2+1] << 8));
++    return 0;
++}
++
++#ifdef MODULE
++static struct net_device *dev_cs8900a;
++
++/*
++ * Support the 'debug' module parm even if we're compiled for non-debug to
++ * avoid breaking someone's startup scripts
++ */
++
++static int io = IPMATE_VA_CS8900A + 0x300;
++static int irq = IRQ_LAN;
++static char media[8];
++static int duplex = -1;
++
++module_param(io, int, IPMATE_VA_CS8900A + 0x300);
++module_param(irq, int, IRQ_LAN);
++//module_param(debug, int, 0);
++module_param_string(media, media, sizeof(media), 0);
++module_param(duplex, int, -1);
++MODULE_PARM_DESC(io, "cs8900a I/O base address");
++MODULE_PARM_DESC(irq, "cs8900a IRQ number");
++MODULE_PARM_DESC(media, "Set cs8900a adapter(s) media type(s) (rj45,bnc,aui)");
++/* No other value than -1 for duplex seems to be currently interpreted */
++MODULE_PARM_DESC(duplex, "(ignored)");
++
++MODULE_AUTHOR("Mike Cruse, Russell Nelson <nelson@crynwr.com>, Andrew Morton <andrewm@uow.edu.au>");
++MODULE_LICENSE("GPL");
++
++
++/*
++* media=t		- specify media type
++   or media=2
++   or media=aui
++   or medai=auto
++* duplex=0		- specify forced half/full/autonegotiate duplex
++* debug=#		- debug level
++
++
++* Default Chip Configuration:
++  * DMA Burst = enabled
++  * IOCHRDY Enabled = enabled
++    * UseSA = enabled
++    * CS8900 defaults to half-duplex if not specified on command-line
++    * CS8920 defaults to autoneg if not specified on command-line
++    * Use reset defaults for other config parameters
++
++* Assumptions:
++  * media type specified is supported (circuitry is present)
++  * if memory address is > 1MB, then required mem decode hw is present
++  * if 10B-2, then agent other than driver will enable DC/DC converter
++    (hw or software util)
++
++
++*/
++
++static int __init init_cs8900a_s3c2410(void)
++{
++    struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++    struct net_local *lp;
++    int ret = 0;
++
++    if (!dev)
++	return -ENOMEM;
++
++    if (!dev->name)
++	sprintf(dev->name, DRV_NAME);
++
++    dev->irq = irq;
++
++    dev->base_addr = io;
++
++    lp = netdev_priv(dev);
++
++    spin_lock_init(&lp->lock);
++
++    /* boy, they'd better get these right */
++    if (strcmp(media, "rj45") == 0)
++	lp->adapter_cnf = A_CNF_MEDIA_10B_T | A_CNF_10B_T;
++    else if (strcmp(media, "aui") == 0)
++	lp->adapter_cnf = A_CNF_MEDIA_AUI   | A_CNF_AUI;
++    else if (strcmp(media, "bnc") == 0)
++	lp->adapter_cnf = A_CNF_MEDIA_10B_2 | A_CNF_10B_2;
++    else
++	lp->adapter_cnf = A_CNF_MEDIA_10B_T | A_CNF_10B_T;
++
++    if (duplex == -1)
++	lp->auto_neg_cnf = AUTO_NEG_ENABLE;
++
++    if (io == 0) {
++	printk(KERN_ERR "cs8900a.c: Module autoprobing not allowed.\n");
++	printk(KERN_ERR "cs8900a.c: Append io=0xNNN\n");
++	ret = -EPERM;
++	goto out;
++    }
++
++    __raw_writel((__raw_readl(S3C2410_BWSCON) & ~S3C2410_BWSCON_DW3_32) |
++	S3C2410_BWSCON_ST3 | S3C2410_BWSCON_WS3 | S3C2410_BWSCON_DW3_16, S3C2410_BWSCON);
++
++    __raw_writel(S3C2410_BANKCON_Tacs0 | S3C2410_BANKCON_Tcos4 | S3C2410_BANKCON_Tacc14 |
++	S3C2410_BANKCON_Tcoh1 | S3C2410_BANKCON_Tcah4 | S3C2410_BANKCON_Tacp6 |
++	S3C2410_BANKCON_PMC16, S3C2410_BANKCON3);
++
++//YR - Uncomment
++    set_irq_type(IPMATE_IRQ_CS8900, IRQT_RISING);
++
++    ret = cs8900a_probe1(dev, io, 1);
++    if (ret)
++	goto out;
++
++    if (register_netdev(dev) != 0) {
++	printk(KERN_ERR "cs8900a.c: No card found at 0x%x\n", io);
++	ret = -ENXIO;
++	outw(PP_ChipID, dev->base_addr + ADD_PORT);
++	//release_region(dev->base_addr & ~3, NETCARD_IO_EXTENT);
++	goto out;
++    }
++
++    dev_cs8900a = dev;
++    return 0;
++
++ out:
++    free_netdev(dev);
++    return ret;
++}
++
++static void __exit cleanup_cs8900a_s3c2410(void)
++{
++    if (dev_cs8900a) {
++	/* Free up the private structure, or leak memory :-)  */
++	unregister_netdev(dev_cs8900a);
++	outw(PP_ChipID, dev_cs8900a->base_addr + ADD_PORT);
++	/* If we don't do this, we can't re-insmod it later. */
++	//release_region(dev_cs8900a->base_addr & ~3, NETCARD_IO_EXTENT);
++	free_netdev(dev_cs8900a);
++	dev_cs8900a = NULL;
++    }
++}
++
++module_init(init_cs8900a_s3c2410);
++module_exit(cleanup_cs8900a_s3c2410);
++#endif
++
++/*
++ | $Id: cs8900a.c,v 1.1.1.1 2004/02/04 12:56:28 laputa Exp $
++ |
++ | Local Variables:
++ | mode: c
++ | mode: font-lock
++ | version-control: t
++ | delete-old-versions: t
++ | End:
++ |
++ | -*- End-Of-File -*-
++ */
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/net/Kconfig linux-2.6.20.1/drivers/net/Kconfig
+--- linux-2.6.20.1-org/drivers/net/Kconfig	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/net/Kconfig	2008-01-29 11:11:00.000000000 -0800
+@@ -1467,6 +1467,20 @@ config CS89x0
+ 	  <file:Documentation/networking/net-modules.txt>.  The module will be
+ 	  called cs89x0.
+ 
++config CS8900A
++	tristate "CS8900A support"
++	depends on ARCH_S3C2410
++	---help---
++	  Support for CS8900A chipset based Ethernet cards. If you have a
++	  network (Ethernet) card of this type, say Y and read the
++	  Ethernet-HOWTO, available from
++	  <http://www.tldp.org/docs.html#howto> as well as
++	  <file:Documentation/networking/cs89x0.txt>.
++
++	  To compile this driver as a module, choose M here and read
++	  <file:Documentation/networking/net-modules.txt>.  The module will be
++	  called cs89x.
++
+ config TC35815
+ 	tristate "TOSHIBA TC35815 Ethernet support"
+ 	depends on NET_PCI && PCI && TOSHIBA_JMR3927
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/net/Makefile linux-2.6.20.1/drivers/net/Makefile
+--- linux-2.6.20.1-org/drivers/net/Makefile	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/net/Makefile	2008-01-25 11:21:00.000000000 -0800
+@@ -181,6 +181,7 @@ obj-$(CONFIG_A2065) += a2065.o
+ obj-$(CONFIG_HYDRA) += hydra.o
+ obj-$(CONFIG_ARIADNE) += ariadne.o
+ obj-$(CONFIG_CS89x0) += cs89x0.o
++obj-$(CONFIG_CS8900A) += cs8900a.o
+ obj-$(CONFIG_MACSONIC) += macsonic.o
+ obj-$(CONFIG_MACMACE) += macmace.o
+ obj-$(CONFIG_MAC89x0) += mac89x0.o
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/net/Space.c linux-2.6.20.1/drivers/net/Space.c
+--- linux-2.6.20.1-org/drivers/net/Space.c	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/net/Space.c	2008-01-25 11:21:00.000000000 -0800
+@@ -79,6 +79,7 @@ extern struct net_device *apne_probe(int
+ extern struct net_device *bionet_probe(int unit);
+ extern struct net_device *pamsnet_probe(int unit);
+ extern struct net_device *cs89x0_probe(int unit);
++extern struct net_device *cs8900a_probe(int unit);
+ extern struct net_device *hplance_probe(int unit);
+ extern struct net_device *bagetlance_probe(int unit);
+ extern struct net_device *mvme147lance_probe(int unit);
+@@ -204,6 +205,9 @@ static struct devprobe2 isa_probes[] __i
+ #ifdef CONFIG_CS89x0
+  	{cs89x0_probe, 0},
+ #endif
++#ifdef CONFIG_CS8900A
++	{cs8900a_probe, 0},
++#endif
+ #ifdef CONFIG_AT1700
+ 	{at1700_probe, 0},
+ #endif
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/console/font_clean_4x6.c linux-2.6.20.1/drivers/video/console/font_clean_4x6.c
+--- linux-2.6.20.1-org/drivers/video/console/font_clean_4x6.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/drivers/video/console/font_clean_4x6.c	2008-01-25 11:21:00.000000000 -0800
+@@ -0,0 +1,1059 @@
++/*       Font file generated by Jay Carlson from clR4x6.bdf */
++
++/*
++COMMENT  Copyright 1989 Dale Schumacher, dal@syntel.mn.org
++COMMENT                 399 Beacon Ave.
++COMMENT                 St. Paul, MN  55104-3527
++COMMENT
++COMMENT  Permission to use, copy, modify, and distribute this software and
++COMMENT  its documentation for any purpose and without fee is hereby
++COMMENT  granted, provided that the above copyright notice appear in all
++COMMENT  copies and that both that copyright notice and this permission
++COMMENT  notice appear in supporting documentation, and that the name of
++COMMENT  Dale Schumacher not be used in advertising or publicity pertaining to
++COMMENT  distribution of the software without specific, written prior
++COMMENT  permission.  Dale Schumacher makes no representations about the
++COMMENT  suitability of this software for any purpose.  It is provided "as
++COMMENT  is" without express or implied warranty.
++*/
++
++#include <linux/font.h>
++
++#define FONTDATAMAX (6 * 256)
++
++static unsigned char fontdata_clean_4x6[FONTDATAMAX] = {
++
++	 /* 0 0x00 C000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0xf0, /* 11110000 */
++
++	 /* 1 0x01 C001 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 2 0x02 C002 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 3 0x03 C003 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 4 0x04 C004 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 5 0x05 C005 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 6 0x06 C006 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 7 0x07 C007 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 8 0x08 C010 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 9 0x09 C011 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 10 0x0a C012 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 11 0x0b C013 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 12 0x0c C014 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 13 0x0d C015 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 14 0x0e C016 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 15 0x0f C017 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 16 0x10 C020 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 17 0x11 C021 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 18 0x12 C022 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 19 0x13 C023 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 20 0x14 C024 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 21 0x15 C025 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 22 0x16 C026 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 23 0x17 C027 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 24 0x18 C030 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 25 0x19 C031 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 26 0x1a C032 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 27 0x1b C033 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 28 0x1c C034 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 29 0x1d C035 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 30 0x1e C036 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 31 0x1f C037 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 32 0x20 C040 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 33 0x21 ! */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 34 0x22 " */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 35 0x23 # */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 36 0x24 $ */
++	0xe0, /* 11100000 */
++	0xc0, /* 11000000 */
++	0xe0, /* 11100000 */
++	0x60, /* 01100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 37 0x25 % */
++	0xa0, /* 10100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x80, /* 10000000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 38 0x26 & */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 39 0x27 ' */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 40 0x28 ( */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 41 0x29 ) */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 42 0x2a * */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 43 0x2b + */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 44 0x2c , */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 45 0x2d - */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 46 0x2e . */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 47 0x2f / */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++
++	 /* 48 0x30 0 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 49 0x31 1 */
++	0x40, /* 01000000 */
++	0xc0, /* 11000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 50 0x32 2 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 51 0x33 3 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 52 0x34 4 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 53 0x35 5 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 54 0x36 6 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 55 0x37 7 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 56 0x38 8 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 57 0x39 9 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 58 0x3a : */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 59 0x3b ; */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 60 0x3c < */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x80, /* 10000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 61 0x3d = */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 62 0x3e > */
++	0x80, /* 10000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++
++	 /* 63 0x3f ? */
++	0xc0, /* 11000000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 64 0x40 @ */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 65 0x41 A */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 66 0x42 B */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 67 0x43 C */
++	0x60, /* 01100000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 68 0x44 D */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 69 0x45 E */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xc0, /* 11000000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 70 0x46 F */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0xc0, /* 11000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++
++	 /* 71 0x47 G */
++	0x60, /* 01100000 */
++	0x80, /* 10000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 72 0x48 H */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 73 0x49 I */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 74 0x4a J */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 75 0x4b K */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 76 0x4c L */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 77 0x4d M */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 78 0x4e N */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 79 0x4f O */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 80 0x50 P */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++
++	 /* 81 0x51 Q */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 82 0x52 R */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 83 0x53 S */
++	0x60, /* 01100000 */
++	0x80, /* 10000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 84 0x54 T */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 85 0x55 U */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 86 0x56 V */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 87 0x57 W */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 88 0x58 X */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 89 0x59 Y */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 90 0x5a Z */
++	0xe0, /* 11100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x80, /* 10000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 91 0x5b [ */
++	0x60, /* 01100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 92 0x5c \ */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 93 0x5d ] */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 94 0x5e ^ */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 95 0x5f _ */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 96 0x60 ` */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 97 0x61 a */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 98 0x62 b */
++	0x80, /* 10000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 99 0x63 c */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 100 0x64 d */
++	0x20, /* 00100000 */
++	0x60, /* 01100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 101 0x65 e */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 102 0x66 f */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 103 0x67 g */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0xc0, /* 11000000 */
++
++	 /* 104 0x68 h */
++	0x80, /* 10000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 105 0x69 i */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 106 0x6a j */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++
++	 /* 107 0x6b k */
++	0x80, /* 10000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 108 0x6c l */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 109 0x6d m */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 110 0x6e n */
++	0x00, /* 00000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 111 0x6f o */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 112 0x70 p */
++	0x00, /* 00000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0xc0, /* 11000000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++
++	 /* 113 0x71 q */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++
++	 /* 114 0x72 r */
++	0x00, /* 00000000 */
++	0xc0, /* 11000000 */
++	0xa0, /* 10100000 */
++	0x80, /* 10000000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++
++	 /* 115 0x73 s */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0xc0, /* 11000000 */
++	0x60, /* 01100000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 116 0x74 t */
++	0x40, /* 01000000 */
++	0xe0, /* 11100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 117 0x75 u */
++	0x00, /* 00000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 118 0x76 v */
++	0x00, /* 00000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 119 0x77 w */
++	0x00, /* 00000000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 120 0x78 x */
++	0x00, /* 00000000 */
++	0xa0, /* 10100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0x00, /* 00000000 */
++
++	 /* 121 0x79 y */
++	0x00, /* 00000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0xc0, /* 11000000 */
++
++	 /* 122 0x7a z */
++	0x00, /* 00000000 */
++	0xe0, /* 11100000 */
++	0x60, /* 01100000 */
++	0xc0, /* 11000000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++	 /* 123 0x7b { */
++	0x60, /* 01100000 */
++	0x40, /* 01000000 */
++	0xc0, /* 11000000 */
++	0x40, /* 01000000 */
++	0x60, /* 01100000 */
++	0x00, /* 00000000 */
++
++	 /* 124 0x7c | */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 125 0x7d } */
++	0xc0, /* 11000000 */
++	0x40, /* 01000000 */
++	0x60, /* 01100000 */
++	0x40, /* 01000000 */
++	0xc0, /* 11000000 */
++	0x00, /* 00000000 */
++
++	 /* 126 0x7e ~ */
++	0x20, /* 00100000 */
++	0xe0, /* 11100000 */
++	0x80, /* 10000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 127 0x7f C177 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0xa0, /* 10100000 */
++	0xa0, /* 10100000 */
++	0xe0, /* 11100000 */
++	0x00, /* 00000000 */
++
++};
++
++struct font_desc font_clean_4x6 = {
++	CLEAN4x6_IDX,
++	"Clean4x6",
++	4,
++	6,
++	fontdata_clean_4x6,
++	3
++};
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/console/font_clean_5x8.c linux-2.6.20.1/drivers/video/console/font_clean_5x8.c
+--- linux-2.6.20.1-org/drivers/video/console/font_clean_5x8.c	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/drivers/video/console/font_clean_5x8.c	2008-01-25 11:21:00.000000000 -0800
+@@ -0,0 +1,1314 @@
++/*       Font file generated by Jay Carlson from clR5x8.bdf */
++
++/*
++COMMENT  Copyright 1989 Dale Schumacher, dal@syntel.mn.org
++COMMENT                 399 Beacon Ave.
++COMMENT                 St. Paul, MN  55104-3527
++COMMENT
++COMMENT  Permission to use, copy, modify, and distribute this software and
++COMMENT  its documentation for any purpose and without fee is hereby
++COMMENT  granted, provided that the above copyright notice appear in all
++COMMENT  copies and that both that copyright notice and this permission
++COMMENT  notice appear in supporting documentation, and that the name of
++COMMENT  Dale Schumacher not be used in advertising or publicity pertaining to
++COMMENT  distribution of the software without specific, written prior
++COMMENT  permission.  Dale Schumacher makes no representations about the
++COMMENT  suitability of this software for any purpose.  It is provided "as
++COMMENT  is" without express or implied warranty.
++*/
++
++#include <linux/font.h>
++
++#define FONTDATAMAX (8 * 256)
++
++static unsigned char fontdata_clean_5x8[FONTDATAMAX] = {
++
++	 /* 0 0x00 C000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 1 0x01 C001 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 2 0x02 C002 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 3 0x03 C003 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 4 0x04 C004 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 5 0x05 C005 */
++	0x00, /* 00000000 */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 6 0x06 C006 */
++	0x00, /* 00000000 */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 7 0x07 C007 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x40, /* 01000000 */
++	0x58, /* 01011000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 8 0x08 C010 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 9 0x09 C011 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 10 0x0a C012 */
++	0x00, /* 00000000 */
++	0x18, /* 00011000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 11 0x0b C013 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x50, /* 01010000 */
++	0x60, /* 01100000 */
++	0x50, /* 01010000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 12 0x0c C014 */
++	0x00, /* 00000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 13 0x0d C015 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 14 0x0e C016 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x68, /* 01101000 */
++	0x58, /* 01011000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 15 0x0f C017 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 16 0x10 C020 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 17 0x11 C021 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x18, /* 00011000 */
++	0x00, /* 00000000 */
++
++	 /* 18 0x12 C022 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x50, /* 01010000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 19 0x13 C023 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x40, /* 01000000 */
++	0x30, /* 00110000 */
++	0x08, /* 00001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 20 0x14 C024 */
++	0x00, /* 00000000 */
++	0xf8, /* 11111000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 21 0x15 C025 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 22 0x16 C026 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 23 0x17 C027 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 24 0x18 C030 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 25 0x19 C031 */
++	0x00, /* 00000000 */
++	0x88, /* 10001000 */
++	0x50, /* 01010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 26 0x1a C032 */
++	0x00, /* 00000000 */
++	0x78, /* 01111000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 27 0x1b C033 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 28 0x1c C034 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 29 0x1d C035 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 30 0x1e C036 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 31 0x1f C037 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 32 0x20 C040 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 33 0x21 ! */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 34 0x22 " */
++	0x28, /* 00101000 */
++	0x28, /* 00101000 */
++	0x28, /* 00101000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 35 0x23 # */
++	0x50, /* 01010000 */
++	0x50, /* 01010000 */
++	0xf8, /* 11111000 */
++	0x50, /* 01010000 */
++	0xf8, /* 11111000 */
++	0x50, /* 01010000 */
++	0x50, /* 01010000 */
++	0x00, /* 00000000 */
++
++	 /* 36 0x24 $ */
++	0x20, /* 00100000 */
++	0x78, /* 01111000 */
++	0xa0, /* 10100000 */
++	0x70, /* 01110000 */
++	0x28, /* 00101000 */
++	0xf0, /* 11110000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 37 0x25 % */
++	0x60, /* 01100000 */
++	0x68, /* 01101000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x58, /* 01011000 */
++	0x18, /* 00011000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 38 0x26 & */
++	0x30, /* 00110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x28, /* 00101000 */
++	0x50, /* 01010000 */
++	0x50, /* 01010000 */
++	0x28, /* 00101000 */
++	0x00, /* 00000000 */
++
++	 /* 39 0x27 ' */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 40 0x28 ( */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x08, /* 00001000 */
++	0x00, /* 00000000 */
++
++	 /* 41 0x29 ) */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 42 0x2a * */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x78, /* 01111000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 43 0x2b + */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0xf8, /* 11111000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 44 0x2c , */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++
++	 /* 45 0x2d - */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xf8, /* 11111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 46 0x2e . */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 47 0x2f / */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++
++	 /* 48 0x30 0 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x58, /* 01011000 */
++	0x68, /* 01101000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 49 0x31 1 */
++	0x20, /* 00100000 */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 50 0x32 2 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++
++	 /* 51 0x33 3 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x08, /* 00001000 */
++	0x30, /* 00110000 */
++	0x08, /* 00001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 52 0x34 4 */
++	0x08, /* 00001000 */
++	0x18, /* 00011000 */
++	0x18, /* 00011000 */
++	0x28, /* 00101000 */
++	0x28, /* 00101000 */
++	0x78, /* 01111000 */
++	0x08, /* 00001000 */
++	0x00, /* 00000000 */
++
++	 /* 53 0x35 5 */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 54 0x36 6 */
++	0x30, /* 00110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 55 0x37 7 */
++	0x78, /* 01111000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 56 0x38 8 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 57 0x39 9 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 58 0x3a : */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 59 0x3b ; */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++
++	 /* 60 0x3c < */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x08, /* 00001000 */
++	0x00, /* 00000000 */
++
++	 /* 61 0x3d = */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xf8, /* 11111000 */
++	0x00, /* 00000000 */
++	0xf8, /* 11111000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 62 0x3e > */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 63 0x3f ? */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 64 0x40 @ */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x58, /* 01011000 */
++	0x58, /* 01011000 */
++	0x40, /* 01000000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 65 0x41 A */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 66 0x42 B */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 67 0x43 C */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 68 0x44 D */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 69 0x45 E */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++
++	 /* 70 0x46 F */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 71 0x47 G */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x40, /* 01000000 */
++	0x58, /* 01011000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++
++	 /* 72 0x48 H */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 73 0x49 I */
++	0x70, /* 01110000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 74 0x4a J */
++	0x18, /* 00011000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 75 0x4b K */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x50, /* 01010000 */
++	0x60, /* 01100000 */
++	0x50, /* 01010000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 76 0x4c L */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++
++	 /* 77 0x4d M */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 78 0x4e N */
++	0x48, /* 01001000 */
++	0x68, /* 01101000 */
++	0x68, /* 01101000 */
++	0x58, /* 01011000 */
++	0x58, /* 01011000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 79 0x4f O */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 80 0x50 P */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 81 0x51 Q */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x18, /* 00011000 */
++
++	 /* 82 0x52 R */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x50, /* 01010000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 83 0x53 S */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x40, /* 01000000 */
++	0x30, /* 00110000 */
++	0x08, /* 00001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 84 0x54 T */
++	0xf8, /* 11111000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 85 0x55 U */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 86 0x56 V */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x30, /* 00110000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 87 0x57 W */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x78, /* 01111000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 88 0x58 X */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 89 0x59 Y */
++	0x88, /* 10001000 */
++	0x88, /* 10001000 */
++	0x50, /* 01010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 90 0x5a Z */
++	0x78, /* 01111000 */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++
++	 /* 91 0x5b [ */
++	0x38, /* 00111000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++
++	 /* 92 0x5c \ */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++
++	 /* 93 0x5d ] */
++	0x70, /* 01110000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 94 0x5e ^ */
++	0x20, /* 00100000 */
++	0x50, /* 01010000 */
++	0x88, /* 10001000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 95 0x5f _ */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xf8, /* 11111000 */
++
++	 /* 96 0x60 ` */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 97 0x61 a */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x58, /* 01011000 */
++	0x28, /* 00101000 */
++	0x00, /* 00000000 */
++
++	 /* 98 0x62 b */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 99 0x63 c */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++
++	 /* 100 0x64 d */
++	0x08, /* 00001000 */
++	0x08, /* 00001000 */
++	0x38, /* 00111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++
++	 /* 101 0x65 e */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x78, /* 01111000 */
++	0x40, /* 01000000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 102 0x66 f */
++	0x18, /* 00011000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x70, /* 01110000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 103 0x67 g */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x08, /* 00001000 */
++	0x30, /* 00110000 */
++
++	 /* 104 0x68 h */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 105 0x69 i */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 106 0x6a j */
++	0x10, /* 00010000 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x60, /* 01100000 */
++
++	 /* 107 0x6b k */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x48, /* 01001000 */
++	0x50, /* 01010000 */
++	0x60, /* 01100000 */
++	0x50, /* 01010000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 108 0x6c l */
++	0x60, /* 01100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 109 0x6d m */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0xd0, /* 11010000 */
++	0xa8, /* 10101000 */
++	0xa8, /* 10101000 */
++	0xa8, /* 10101000 */
++	0x88, /* 10001000 */
++	0x00, /* 00000000 */
++
++	 /* 110 0x6e n */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 111 0x6f o */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 112 0x70 p */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x70, /* 01110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x70, /* 01110000 */
++	0x40, /* 01000000 */
++
++	 /* 113 0x71 q */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x08, /* 00001000 */
++
++	 /* 114 0x72 r */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x58, /* 01011000 */
++	0x60, /* 01100000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 115 0x73 s */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x38, /* 00111000 */
++	0x40, /* 01000000 */
++	0x30, /* 00110000 */
++	0x08, /* 00001000 */
++	0x70, /* 01110000 */
++	0x00, /* 00000000 */
++
++	 /* 116 0x74 t */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x78, /* 01111000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x18, /* 00011000 */
++	0x00, /* 00000000 */
++
++	 /* 117 0x75 u */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x00, /* 00000000 */
++
++	 /* 118 0x76 v */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x30, /* 00110000 */
++	0x00, /* 00000000 */
++
++	 /* 119 0x77 w */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x88, /* 10001000 */
++	0xa8, /* 10101000 */
++	0xa8, /* 10101000 */
++	0xa8, /* 10101000 */
++	0x50, /* 01010000 */
++	0x00, /* 00000000 */
++
++	 /* 120 0x78 x */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x30, /* 00110000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x00, /* 00000000 */
++
++	 /* 121 0x79 y */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x48, /* 01001000 */
++	0x38, /* 00111000 */
++	0x08, /* 00001000 */
++	0x30, /* 00110000 */
++
++	 /* 122 0x7a z */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x78, /* 01111000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x78, /* 01111000 */
++	0x00, /* 00000000 */
++
++	 /* 123 0x7b { */
++	0x08, /* 00001000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x10, /* 00010000 */
++	0x08, /* 00001000 */
++	0x00, /* 00000000 */
++
++	 /* 124 0x7c | */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x00, /* 00000000 */
++
++	 /* 125 0x7d } */
++	0x40, /* 01000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x10, /* 00010000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x40, /* 01000000 */
++	0x00, /* 00000000 */
++
++	 /* 126 0x7e ~ */
++	0x28, /* 00101000 */
++	0x50, /* 01010000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++	0x00, /* 00000000 */
++
++	 /* 127 0x7f C177 */
++	0x00, /* 00000000 */
++	0x20, /* 00100000 */
++	0x20, /* 00100000 */
++	0x50, /* 01010000 */
++	0x50, /* 01010000 */
++	0x88, /* 10001000 */
++	0xf8, /* 11111000 */
++	0x00, /* 00000000 */
++};
++
++struct font_desc font_clean_5x8 = {
++	CLEAN5x8_IDX,
++	"Clean5x8",
++	5,
++	8,
++	fontdata_clean_5x8,
++	3
++};
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/console/fonts.c linux-2.6.20.1/drivers/video/console/fonts.c
+--- linux-2.6.20.1-org/drivers/video/console/fonts.c	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/video/console/fonts.c	2008-01-25 11:21:00.000000000 -0800
+@@ -63,6 +63,14 @@ static const struct font_desc *fonts[] =
+ #undef NO_FONTS
+     &font_mini_4x6,
+ #endif
++#ifdef CONFIG_FONT_CLEAN_4x6
++#undef NO_FONTS
++    &font_clean_4x6,
++#endif
++#ifdef CONFIG_FONT_CLEAN_5x8
++#undef NO_FONTS
++    &font_clean_5x8,
++#endif
+ };
+ 
+ #define num_fonts ARRAY_SIZE(fonts)
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/console/Kconfig linux-2.6.20.1/drivers/video/console/Kconfig
+--- linux-2.6.20.1-org/drivers/video/console/Kconfig	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/video/console/Kconfig	2008-01-25 11:21:00.000000000 -0800
+@@ -217,6 +217,18 @@ config FONT_MINI_4x6
+ 	bool "Mini 4x6 font"
+ 	depends on !SPARC && FONTS
+ 
++config FONT_CLEAN_4x6
++	bool "Clean 4x6 font"
++	depends on !SPARC && FONTS
++	help
++	  Mini console font for tiny displays
++
++config FONT_CLEAN_5x8
++	bool "Clean 5x8 font"
++	depends on !SPARC && FONTS
++	help
++	  Small console font for small displays
++
+ config FONT_SUN8x16
+ 	bool "Sparc console 8x16 font"
+ 	depends on FRAMEBUFFER_CONSOLE && (!SPARC && FONTS || SPARC)
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/console/Makefile linux-2.6.20.1/drivers/video/console/Makefile
+--- linux-2.6.20.1-org/drivers/video/console/Makefile	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/video/console/Makefile	2008-01-25 11:21:00.000000000 -0800
+@@ -15,6 +15,8 @@ font-objs-$(CONFIG_FONT_10x18)     += fo
+ font-objs-$(CONFIG_FONT_PEARL_8x8) += font_pearl_8x8.o
+ font-objs-$(CONFIG_FONT_ACORN_8x8) += font_acorn_8x8.o
+ font-objs-$(CONFIG_FONT_MINI_4x6)  += font_mini_4x6.o
++font-objs-$(CONFIG_FONT_CLEAN_4x6) += font_clean_4x6.o
++font-objs-$(CONFIG_FONT_CLEAN_5x8) += font_clean_5x8.o
+ 
+ font-objs += $(font-objs-y)
+ 
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/fbmem.c linux-2.6.20.1/drivers/video/fbmem.c
+--- linux-2.6.20.1-org/drivers/video/fbmem.c	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/video/fbmem.c	2008-01-29 11:14:38.000000000 -0800
+@@ -381,6 +381,8 @@ static void fb_do_show_logo(struct fb_in
+ {
+ 	int x;
+ 
++	printk("FB rotate = %d\n", rotate);
++
+ 	if (rotate == FB_ROTATE_UR) {
+ 		for (x = 0; x < num_online_cpus() &&
+ 			     x * (fb_logo.logo->width + 8) <=
+@@ -454,6 +456,7 @@ int fb_prepare_logo(struct fb_info *info
+ 	fb_logo.logo = fb_find_logo(depth);
+ 
+ 	if (!fb_logo.logo) {
++		printk("fb_find_logo(): Could not find logo\n");
+ 		return 0;
+ 	}
+ 	
+@@ -484,8 +487,10 @@ int fb_show_logo(struct fb_info *info, i
+ 	struct fb_image image;
+ 
+ 	/* Return if the frame buffer is not mapped or suspended */
+-	if (fb_logo.logo == NULL || info->state != FBINFO_STATE_RUNNING)
++	if (fb_logo.logo == NULL || info->state != FBINFO_STATE_RUNNING) {
++		printk("Framebuffer not mapped or suspended\n");
+ 		return 0;
++	}
+ 
+ 	image.depth = 8;
+ 	image.data = fb_logo.logo->data;
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/drivers/video/s3c2410fb.c linux-2.6.20.1/drivers/video/s3c2410fb.c
+--- linux-2.6.20.1-org/drivers/video/s3c2410fb.c	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/drivers/video/s3c2410fb.c	2008-01-29 17:06:37.000000000 -0800
+@@ -114,6 +114,47 @@ static int debug	   = 0;
+ 
+ #define dprintk(msg...)	if (debug) { printk(KERN_DEBUG "s3c2410fb: " msg); }
+ 
++/*
++ * YR - Start additions
++ * LCD Power and Backlight control from 2.6.12 files
++ */
++
++// Control functions defined in 'arch/arm/mach-s3c2410/mach-ipmate.c'
++void ipmate_lcd_power(int on);
++void ipmate_backlight_power(int on);
++void ipmate_set_brightness(int level);
++
++#define S3C2410_FBIO_SETBRIGHTNESS	_IOW('F', 0x50, int)
++#define DEFAULT_BACKLIGHT_LEVEL		2
++
++/* backlight and power control functions */
++
++static int backlight_level = DEFAULT_BACKLIGHT_LEVEL;
++static int backlight_power = 1;
++static int lcd_power	   = 1;
++
++static inline void s3c2410fb_lcd_power(int to)
++{
++	lcd_power = to;
++	ipmate_lcd_power(to);
++}
++
++static inline void s3c2410fb_backlight_power(int to)
++{
++	backlight_power = to;
++	ipmate_backlight_power(to);
++}
++
++static inline void s3c2410fb_backlight_level(int to)
++{
++	backlight_level = to;
++	ipmate_set_brightness(to);
++}
++
++/*
++ * YR - End additions
++ */
++
+ /* useful functions */
+ 
+ /* s3c2410fb_set_lcdaddr
+@@ -123,15 +164,22 @@ static int debug	   = 0;
+ 
+ static void s3c2410fb_set_lcdaddr(struct s3c2410fb_info *fbi)
+ {
+-	struct fb_var_screeninfo *var = &fbi->fb->var;
++//	struct fb_var_screeninfo *var = &fbi->fb->var;
+ 	unsigned long saddr1, saddr2, saddr3;
+ 
+ 	saddr1  = fbi->fb->fix.smem_start >> 1;
++#if 0
+ 	saddr2  = fbi->fb->fix.smem_start;
+ 	saddr2 += (var->xres * var->yres * var->bits_per_pixel)/8;
+ 	saddr2>>= 1;
+-
+-	saddr3 =  S3C2410_OFFSIZE(0) | S3C2410_PAGEWIDTH((var->xres * var->bits_per_pixel / 16) & 0x3ff);
++#else
++    //YR: From 2.6.12
++//	saddr2 = (fbi->fb.fix.smem_start >> 1) + (mach_info->height * ((mach_info->width * mach_info->bpp) >> 4));
++	saddr2 = (fbi->fb->fix.smem_start >>1) + (480               * ((640              * 8             ) >> 4));
++#endif
++//YR
++//	saddr3 =  S3C2410_OFFSIZE(0) | S3C2410_PAGEWIDTH((var->xres * var->bits_per_pixel / 16) & 0x3ff);
++	saddr3 =  S3C2410_OFFSIZE(0) | S3C2410_PAGEWIDTH((640       * 8                 ) >> 4);
+ 
+ 	dprintk("LCDSADDR1 = 0x%08lx\n", saddr1);
+ 	dprintk("LCDSADDR2 = 0x%08lx\n", saddr2);
+@@ -211,6 +259,8 @@ static int s3c2410fb_check_var(struct fb
+ 			var->transp.length 	= 0;
+ 			break;
+ 		case 8:
++//YR - use code from 2.6.12
++#if 0
+ 			if ( fbi->mach_info->type != S3C2410_LCDCON1_TFT ) {
+ 				/* 8 bpp 332 */
+ 				var->red.length		= 3;
+@@ -228,6 +278,16 @@ static int s3c2410fb_check_var(struct fb
+ 				var->transp.offset 	= 0;
+ 				var->transp.length 	= 0;
+ 			}
++#else
++			var->red.offset		= 5;
++			var->green.offset	= 2;
++			var->blue.offset	= 0;
++			var->red.length		= 3;
++			var->green.length	= 3;
++			var->blue.length	= 2;
++
++			var->accel_flags = 0;	/* Can't mmap if this is on */
++#endif
+ 			break;
+ 		case 12:
+ 			/* 12 bpp 444 */
+@@ -417,7 +477,9 @@ static void s3c2410fb_activate_var(struc
+ 	}
+ 
+ 	/* write new registers */
+-
++//YR
++	fbi->regs.lcdcon1 = 0x00000346;
++//YR
+ 	dprintk("new register set:\n");
+ 	dprintk("lcdcon[1] = 0x%08lx\n", fbi->regs.lcdcon1);
+ 	dprintk("lcdcon[2] = 0x%08lx\n", fbi->regs.lcdcon2);
+@@ -434,7 +496,10 @@ static void s3c2410fb_activate_var(struc
+ 	/* set lcd address pointers */
+ 	s3c2410fb_set_lcdaddr(fbi);
+ 
+-	writel(fbi->regs.lcdcon1, S3C2410_LCDCON1);
++	writel(fbi->regs.lcdcon1 | S3C2410_LCDCON1_ENVID, S3C2410_LCDCON1);
++//YR
++	dprintk("activate_var() exit: lcdcon[1] = 0x%08lx\n", fbi->regs.lcdcon1);
++//YR
+ }
+ 
+ 
+@@ -448,6 +513,10 @@ static int s3c2410fb_set_par(struct fb_i
+ 	struct s3c2410fb_info *fbi = info->par;
+ 	struct fb_var_screeninfo *var = &info->var;
+ 
++	dprintk("set_par(%p)\n", info->par);
++
++//YR - modify per 2.6.12
++#if 0
+ 	switch (var->bits_per_pixel)
+ 	{
+ 		case 16:
+@@ -460,6 +529,10 @@ static int s3c2410fb_set_par(struct fb_i
+ 			 fbi->fb->fix.visual = FB_VISUAL_PSEUDOCOLOR;
+ 			 break;
+ 	}
++#else
++	dprintk("Setting FB to TRUECOLOR\n");
++	fbi->fb->fix.visual = FB_VISUAL_TRUECOLOR;
++#endif
+ 
+ 	fbi->fb->fix.line_length     = (var->width*var->bits_per_pixel)/8;
+ 
+@@ -563,7 +636,11 @@ static int s3c2410fb_setcolreg(unsigned 
+  */
+ static int s3c2410fb_blank(int blank_mode, struct fb_info *info)
+ {
+-	dprintk("blank(mode=%d, info=%p)\n", blank_mode, info);
++	/* Virtio emulator requires a printk that goes to the console here,
++	 * otherwise the bootup never finishes. WTF?
++	 */
++	//dprintk("blank(mode=%d, info=%p)\n", blank_mode, info);
++	printk("blank(mode=%d, info=%p)\n", blank_mode, info);
+ 
+ 	if (mach_info == NULL)
+ 		return -EINVAL;
+@@ -679,10 +756,11 @@ static inline void modify_gpio(void __io
+ 
+ static int s3c2410fb_init_registers(struct s3c2410fb_info *fbi)
+ {
+-	unsigned long flags;
++//	unsigned long flags;
+ 
+ 	/* Initialise LCD with values from haret */
+-
++//YR
++#if 0
+ 	local_irq_save(flags);
+ 
+ 	/* modify the gpio(s) with interrupts set (bjd) */
+@@ -693,7 +771,9 @@ static int s3c2410fb_init_registers(stru
+ 	modify_gpio(S3C2410_GPDCON, mach_info->gpdcon, mach_info->gpdcon_mask);
+ 
+ 	local_irq_restore(flags);
+-
++#endif
++//
++	fbi->regs.lcdcon1 = 0x00000346;
+ 	writel(fbi->regs.lcdcon1, S3C2410_LCDCON1);
+ 	writel(fbi->regs.lcdcon2, S3C2410_LCDCON2);
+ 	writel(fbi->regs.lcdcon3, S3C2410_LCDCON3);
+@@ -710,6 +790,12 @@ static int s3c2410fb_init_registers(stru
+ 	/* ensure temporary palette disabled */
+ 	writel(0x00, S3C2410_TPAL);
+ 
++//YR: From 2..6.12
++	__raw_writel(0xeca86420, S3C2410_REDLUT);
++	__raw_writel(0xfdb97531, S3C2410_GREENLUT);
++	__raw_writel(0xeb73, S3C2410_BLUELUT);
++	msleep(10);
++//YR
+ 	/* Enable video by setting the ENVID bit to 1 */
+ 	fbi->regs.lcdcon1 |= S3C2410_LCDCON1_ENVID;
+ 	writel(fbi->regs.lcdcon1, S3C2410_LCDCON1);
+@@ -767,7 +853,7 @@ static int __init s3c2410fb_probe(struct
+ 	int ret;
+ 	int irq;
+ 	int i;
+-	u32 lcdcon1;
++//	u32 lcdcon1;
+ 
+ 	mach_info = pdev->dev.platform_data;
+ 	if (mach_info == NULL) {
+@@ -792,7 +878,12 @@ static int __init s3c2410fb_probe(struct
+ 	info = fbinfo->par;
+ 	info->fb = fbinfo;
+ 	platform_set_drvdata(pdev, fbinfo);
++//YR - Start
++	s3c2410fb_backlight_power(1);
++	s3c2410fb_lcd_power(1);
+ 
++	s3c2410fb_backlight_level(DEFAULT_BACKLIGHT_LEVEL);
++//YR - End
+ 	dprintk("devinit\n");
+ 
+ 	strcpy(fbinfo->fix.id, driver_name);
+@@ -800,12 +891,15 @@ static int __init s3c2410fb_probe(struct
+ 	memcpy(&info->regs, &mach_info->regs, sizeof(info->regs));
+ 
+ 	/* Stop the video and unset ENVID if set */
++#if 0   //YR
+ 	info->regs.lcdcon1 &= ~S3C2410_LCDCON1_ENVID;
+ 	lcdcon1 = readl(S3C2410_LCDCON1);
+ 	writel(lcdcon1 & ~S3C2410_LCDCON1_ENVID, S3C2410_LCDCON1);
++#endif
+ 
+ 	info->mach_info		    = pdev->dev.platform_data;
+ 
++	fbinfo->fix.visual	    = FB_VISUAL_TRUECOLOR;      //YR
+ 	fbinfo->fix.type	    = FB_TYPE_PACKED_PIXELS;
+ 	fbinfo->fix.type_aux	    = 0;
+ 	fbinfo->fix.xpanstep	    = 0;
+@@ -837,7 +931,8 @@ static int __init s3c2410fb_probe(struct
+ 	fbinfo->var.left_margin	    = S3C2410_LCDCON3_GET_HFPD(mregs->lcdcon3) + 1;
+ 	fbinfo->var.right_margin    = S3C2410_LCDCON3_GET_HBPD(mregs->lcdcon3) + 1;
+ 	fbinfo->var.hsync_len	    = S3C2410_LCDCON4_GET_HSPW(mregs->lcdcon4) + 1;
+-
++//YR: Using save values from 2.1.12
++#if 0
+ 	fbinfo->var.red.offset      = 11;
+ 	fbinfo->var.green.offset    = 5;
+ 	fbinfo->var.blue.offset     = 0;
+@@ -846,6 +941,17 @@ static int __init s3c2410fb_probe(struct
+ 	fbinfo->var.green.length    = 6;
+ 	fbinfo->var.blue.length     = 5;
+ 	fbinfo->var.transp.length   = 0;
++#else
++	fbinfo->var.red.offset      = 5;
++	fbinfo->var.green.offset    = 2;
++	fbinfo->var.blue.offset     = 0;
++	fbinfo->var.transp.offset   = 0;
++	fbinfo->var.red.length      = 3;
++	fbinfo->var.green.length    = 3;
++	fbinfo->var.blue.length     = 2;
++	fbinfo->var.transp.length   = 0;
++#endif
++
+ 	fbinfo->fix.smem_len        =	mach_info->xres.max *
+ 					mach_info->yres.max *
+ 					mach_info->bpp.max / 8;
+@@ -878,7 +984,8 @@ static int __init s3c2410fb_probe(struct
+ 	clk_enable(info->clk);
+ 	dprintk("got and enabled clock\n");
+ 
+-	msleep(1);
++//YR	msleep(1);
++	msleep(10);
+ 
+ 	/* Initialize video memory */
+ 	ret = s3c2410fb_map_video_memory(info);
+@@ -890,6 +997,9 @@ static int __init s3c2410fb_probe(struct
+ 	dprintk("got video memory\n");
+ 
+ 	ret = s3c2410fb_init_registers(info);
++//YR - Start
++	s3c2410fb_lcd_power(1);
++//YR - End
+ 
+ 	ret = s3c2410fb_check_var(&fbinfo->var, fbinfo);
+ 
+@@ -975,12 +1085,25 @@ static int s3c2410fb_suspend(struct plat
+ 	struct fb_info	   *fbinfo = platform_get_drvdata(dev);
+ 	struct s3c2410fb_info *info = fbinfo->par;
+ 
++	//YR
++	int     save_val;       // saves value for lcd_power and backlight_power
++
+ 	s3c2410fb_stop_lcd(info);
+ 
+ 	/* sleep before disabling the clock, we need to ensure
+ 	 * the LCD DMA engine is not going to get back on the bus
+ 	 * before the clock goes off again (bjd) */
+ 
++//YR - Start
++	save_val = lcd_power;
++	s3c2410fb_lcd_power(0);
++	lcd_power = save_val;
++
++	save_val = backlight_power;
++	s3c2410fb_backlight_power(0);
++	backlight_power = save_val;
++//YR - End
++
+ 	msleep(1);
+ 	clk_disable(info->clk);
+ 
+@@ -995,6 +1118,11 @@ static int s3c2410fb_resume(struct platf
+ 	clk_enable(info->clk);
+ 	msleep(1);
+ 
++//YR - Start
++    	/* resume the backlight level */
++	s3c2410fb_backlight_power(backlight_power);
++	s3c2410fb_backlight_level(backlight_level);
++//YR - End
+ 	s3c2410fb_init_registers(info);
+ 
+ 	return 0;
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/hardware.h linux-2.6.20.1/include/asm-arm/arch-s3c2410/hardware.h
+--- linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/hardware.h	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/include/asm-arm/arch-s3c2410/hardware.h	2008-01-25 11:21:00.000000000 -0800
+@@ -107,6 +107,10 @@ extern int s3c2440_set_dsc(unsigned int 
+ 
+ /* machine specific hardware definitions should go after this */
+ 
++#if defined(CONFIG_MACH_IPMATE)
++#include "asm/arch/ipmate-map.h"
++#endif
++
+ /* currently here until moved into config (todo) */
+ #define CONFIG_NO_MULTIWORD_IO
+ 
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/ipmate-map.h linux-2.6.20.1/include/asm-arm/arch-s3c2410/ipmate-map.h
+--- linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/ipmate-map.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/include/asm-arm/arch-s3c2410/ipmate-map.h	2008-01-25 11:21:00.000000000 -0800
+@@ -0,0 +1,54 @@
++/*
++ * ipmate-map.h
++ *
++ * s3c2410-SMDK specific definiton
++ *
++ * Author: Yong-iL Joh <tolkien@mizi.com>
++ * Date  : $Date: 2004/02/04 12:57:39 $ 
++ *
++ * $Revision: 1.1.1.1 $
++ */
++
++#ifndef __ASM_ARCH_IPMATE_MAP_H
++#define __ASM_ARCH_IPMATE_MAP_H
++
++#ifndef __ASM_ARCH_HARDWARE_H
++#error "include <asm/hardware.h> instead"
++#endif
++
++#define CONFIG_ARCH_SMDK2410
++
++#define IPMATE_IOADDR(x)	(S3C2410_ADDR((x) + 0x01300000))
++
++/* CS8900A Ethernet */
++#define IPMATE_VA_CS8900A	IPMATE_IOADDR(0x00600000)
++#define IPMATE_PA_CS8900A	(S3C2410_CS3 + 0x01000000)
++#define IPMATE_IRQ_CS8900	IRQ_EINT9
++
++/* Logic Modules */
++#define IPMATE_VA_LM		IPMATE_IOADDR(0x00700000)
++#define IPMATE_PA_LM		S3C2410_CS2
++#define IPMATE_IRQ_LM		IRQ_EINT11
++
++/* LCD */
++#define LCDCON1		(S3C2410_VA_LCD + 0x00)
++#define LCDCON2		(S3C2410_VA_LCD + 0x04)
++#define LCDCON3		(S3C2410_VA_LCD + 0x08)
++#define LCDCON4		(S3C2410_VA_LCD + 0x0c)
++#define LCDCON5		(S3C2410_VA_LCD + 0x10)
++#define LCDADDR1	(S3C2410_VA_LCD + 0x14)
++#define LCDADDR2	(S3C2410_VA_LCD + 0x18)
++#define LCDADDR3	(S3C2410_VA_LCD + 0x1c)
++#define REDLUT		(S3C2410_VA_LCD + 0x20)
++#define GREENLUT	(S3C2410_VA_LCD + 0x24)
++#define BLUELUT		(S3C2410_VA_LCD + 0x28)
++#define DITHMODE	(S3C2410_VA_LCD + 0x4c)
++#define TPAL		(S3C2410_VA_LCD + 0x50)
++#define LCDINTPND	(S3C2410_VA_LCD + 0x54)
++#define LCDSRCPND	(S3C2410_VA_LCD + 0x58)
++#define LCDINTMSK	(S3C2410_VA_LCD + 0x5c)
++#define LCDLPCSEL	(S3C2410_VA_LCD + 0x60)
++
++#define LCD1_ENVID	(1 << 0)
++
++#endif /* __ASM_ARCH_IPMATE_MAP_H */
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/lm.h linux-2.6.20.1/include/asm-arm/arch-s3c2410/lm.h
+--- linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/lm.h	1969-12-31 16:00:00.000000000 -0800
++++ linux-2.6.20.1/include/asm-arm/arch-s3c2410/lm.h	2008-02-29 11:26:29.000000000 -0800
+@@ -0,0 +1,31 @@
++
++struct lm_device {
++	struct device		dev;
++	struct resource		resource;
++	unsigned int		irq;
++	unsigned int		id;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
++	void			*lm_drvdata;
++#endif
++};
++
++struct lm_driver {
++	struct device_driver	drv;
++	int			(*probe)(struct lm_device *);
++	void			(*remove)(struct lm_device *);
++	int			(*suspend)(struct lm_device *, u32);
++	int			(*resume)(struct lm_device *);
++};
++
++int lm_driver_register(struct lm_driver *drv);
++void lm_driver_unregister(struct lm_driver *drv);
++
++int lm_device_register(struct lm_device *dev);
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
++# define lm_get_drvdata(lm)	((lm)->lm_drvdata)
++# define lm_set_drvdata(lm,d)	do { (lm)->lm_drvdata = (d); } while (0)
++#else
++# define lm_get_drvdata(lm)	dev_get_drvdata(&(lm)->dev)
++# define lm_set_drvdata(lm,d)	dev_set_drvdata(&(lm)->dev, d)
++#endif
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/map.h linux-2.6.20.1/include/asm-arm/arch-s3c2410/map.h
+--- linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/map.h	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/include/asm-arm/arch-s3c2410/map.h	2008-01-29 11:37:44.000000000 -0800
+@@ -69,6 +69,7 @@
+ #define S3C24XX_SZ_LCD	   SZ_1M
+ 
+ /* NAND flash controller */
++#define S3C24XX_VA_NAND	   S3C2410_ADDR(0x00700000)
+ #define S3C2410_PA_NAND	   (0x4E000000)
+ #define S3C24XX_SZ_NAND	   SZ_1M
+ 
+@@ -131,6 +132,7 @@
+ #define S3C24XX_SZ_RTC	   SZ_1M
+ 
+ /* ADC */
++#define S3C24XX_VA_ADC	   S3C2410_ADDR(0x01000000)
+ #define S3C2400_PA_ADC	   (0x15800000)
+ #define S3C2410_PA_ADC	   (0x58000000)
+ #define S3C24XX_SZ_ADC	   SZ_1M
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/regs-adc.h linux-2.6.20.1/include/asm-arm/arch-s3c2410/regs-adc.h
+--- linux-2.6.20.1-org/include/asm-arm/arch-s3c2410/regs-adc.h	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/include/asm-arm/arch-s3c2410/regs-adc.h	2008-01-25 11:21:00.000000000 -0800
+@@ -12,7 +12,7 @@
+ #ifndef __ASM_ARCH_REGS_ADC_H
+ #define __ASM_ARCH_REGS_ADC_H "regs-adc.h"
+ 
+-#define S3C2410_ADCREG(x) (x)
++#define S3C2410_ADCREG(x) (S3C24XX_VA_ADC + (x))
+ 
+ #define S3C2410_ADCCON	   S3C2410_ADCREG(0x00)
+ #define S3C2410_ADCTSC	   S3C2410_ADCREG(0x04)
+diff -Nurp --exclude-from=excludes linux-2.6.20.1-org/include/linux/font.h linux-2.6.20.1/include/linux/font.h
+--- linux-2.6.20.1-org/include/linux/font.h	2007-02-19 22:34:32.000000000 -0800
++++ linux-2.6.20.1/include/linux/font.h	2008-01-25 11:21:00.000000000 -0800
+@@ -31,6 +31,8 @@ struct font_desc {
+ #define SUN12x22_IDX	7
+ #define ACORN8x8_IDX	8
+ #define	MINI4x6_IDX	9
++#define CLEAN4x6_IDX    10
++#define CLEAN5x8_IDX    11
+ 
+ extern const struct font_desc	font_vga_8x8,
+ 			font_vga_8x16,
+@@ -41,7 +43,9 @@ extern const struct font_desc	font_vga_8
+ 			font_sun_8x16,
+ 			font_sun_12x22,
+ 			font_acorn_8x8,
+-			font_mini_4x6;
++			font_mini_4x6,
++			font_clean_4x6,
++			font_clean_5x8;
+ 
+ /* Find a font with a specific name */
+ 

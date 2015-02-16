@@ -1,0 +1,382 @@
+2008-01-01 08:50  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.13
+
+2008-01-01 08:39  Rohan McGovern
+
+	* src/inotifywait.c:
+	  Fixes: --timefmt option is ignored
+
+2007-11-24 23:02  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c:
+	  Fixes inaccurate documentation (remove out-of-date todolist
+	  entry).
+
+2007-11-24 00:54  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.12
+
+2007-11-24 00:47  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  libinotifytools/src/test.c:
+	  Fixes: inability to free memory allocated by inotifytools, and
+	  bogus memory leak check.
+
+2007-11-23 23:58  Rohan McGovern
+
+	* src/inotifywait.c:
+	  Fixes: spurious warning when `--format' option given to
+	  inotifywait
+
+2007-11-23 23:55  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c:
+	  Fixes: inotifywait fails to watch newly created directories when
+	  recursively watching a symlink to a directory.
+
+2007-09-18 08:15  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.11
+
+2007-09-18 08:06  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c, libinotifytools/src/test.c:
+	  Fix a buffer overflow in inotifytools_snprintf, and add a test
+	  for that function in `make test'.
+
+2007-05-05 07:28  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.10
+
+2007-05-05 01:19  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools_p.h,
+	  libinotifytools/src/redblack.c, libinotifytools/src/redblack.h,
+	  libinotifytools/src/test.c, src/common.c, src/inotifywatch.c:
+	  Greatly improve performance by storing data in a red-black tree.
+	  The implementation is from libredblack, by Damian Ivereigh.
+	  Remove a few unnecessary warnings.
+
+2007-04-29 06:03  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.9
+
+2007-04-29 05:58  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c, libinotifytools/src/test.c:
+	  Store watch information in a doubly linked list instead of
+	  simple arrays.
+	  This fixes some bugs (including a segfault) when watching a LOT
+	  of files,
+	  however performance might suffer.
+
+2007-02-18 00:26  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.8
+
+2007-02-18 00:22  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c:
+	  Remove "regex" debugging output.
+
+2007-02-04 06:24  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.7
+
+2007-02-04 06:17  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  man/inotifywait.1, man/inotifywatch.1, src/common.c,
+	  src/common.h, src/inotifywait.c, src/inotifywatch.c:
+	  Add `--exclude' and `--excludei' options to inotifywait and
+	  inotifywatch and supporting function in libinotifytools. These
+	  allow events to be excluded if they match a given regular
+	  expression.
+	  Probably fix some compile warnings to do with 64 bit pointers.
+	  Add `extern "C"' to headers when using C++.
+
+2006-12-17 00:09  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.6
+
+2006-12-17 00:06  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  src/inotifywait.c, src/inotifywatch.c:
+	  Make inotifywait and inotifywatch correctly handle moving files
+	  into or out of watched directories. Also add some functions to
+	  libinotifytools to help in doing this.
+
+2006-12-04 07:07  Rohan McGovern
+
+	* configure.ac:
+	  VERSION 3.5
+
+2006-12-03 22:13  Rohan McGovern
+
+	* src/inotifywatch.c:
+	  Remove unnecessary/incorrect `;'. Mysteriously, did not seem to
+	  affect anything. Thanks Ulrich Holeschak.
+
+2006-12-03 08:42  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.4
+
+2006-12-03 08:40  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c, man/inotifywait.1,
+	  man/inotifywatch.1, src/common.c, src/common.h,
+	  src/inotifywait.c, src/inotifywatch.c:
+	  Added --fromfile option to inotifywait and inotifywatch, to read
+	  names of files to watch from a file or standard input.
+	  Fixed some compiler warnings.
+
+2006-12-03 06:50  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  man/inotifywait.1, man/inotifywatch.1, src/inotifywait.c,
+	  src/inotifywatch.c:
+	  Add file exclusion feature to inotifywait, inotifywatch and
+	  libinotifytools.
+	  Thank you Ulrich Holeschak for the idea and initial patch.
+
+2006-10-31 08:42  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.3
+
+2006-10-30 09:44  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c:
+	  Fix uninitialised data used by inotifytools_wd_from_filename.
+
+2006-10-30 09:17  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/inotifytools/inotify.h.in:
+	  Fix sys/inotify.h test.
+
+2006-10-30 00:46  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/test.c:
+	  Actually test if <sys/inotify.h> works, not just if it exists.
+
+2006-10-29 21:31  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c:
+	  Start a TODO list.
+
+2006-10-29 01:22  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/Makefile.am,
+	  libinotifytools/src/test.c:
+	  Add some automated tests to 'make check'.
+	  Fix a few very minor bugs in libinotifytools uncovered by the
+	  tests.
+
+2006-10-28 23:46  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.2
+
+2006-10-28 23:45  Rohan McGovern
+
+	* libinotifytools/src/inotifytools.c:
+	  Fix crash with -e option to inotifywait and inotifywatch, thanks
+	  Bauke Jan Douma for reporting.
+
+2006-10-28 09:43  Rohan McGovern
+
+	* upload_api_docs:
+	  Add a small script to upload API docs to Sourceforge page.
+
+2006-10-28 09:17  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c:
+	  VERSION 3.1
+
+2006-10-28 00:52  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/Makefile.am,
+	  libinotifytools/src/inotifytools/inotify-nosys.h,
+	  libinotifytools/src/inotifytools/inotify.h,
+	  libinotifytools/src/inotifytools/inotify.h.in:
+	  Use <sys/inotify.h> from glibc 2.4 and newer if available, but
+	  provide a fallback header file if it is not.
+
+2006-10-27 11:43  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am:
+	  Fix problem with $DESTDIR
+
+2006-10-27 11:33  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Makefile.am:
+	  VERSION 3.0
+
+2006-10-27 11:26  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotify-masks.h,
+	  libinotifytools/src/inotifytools/inotify-syscalls.h,
+	  libinotifytools/src/inotifytools/inotify.h:
+	  Update inotify.h header.
+	  Fix a compilation warning.
+
+2006-10-27 11:15  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am:
+	  Make sure Doxyfile is always distributed.
+
+2006-10-27 11:11  Rohan McGovern
+
+	* libinotifytools/src/Makefile.am:
+	  Fix doxygen Makefile rule.
+
+2006-10-27 11:07  Rohan McGovern
+
+	* configure.ac, libinotifytools/src/Doxyfile,
+	  libinotifytools/src/Makefile.am, libinotifytools/src/example.c,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotify.h,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  man/inotifywait.1, src/inotifywait.c, src/inotifywatch.c:
+	  Improve libinotifytools a lot.
+	  Add lots of doxygen documentation for libinotifytools.
+	  Add doxygen doc generation to Makefiles.
+	  Add --timefmt option to inotifywait.
+
+2006-10-26 12:36  Rohan McGovern
+
+	* libinotifytools/src/Doxyfile,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  src/Makefile.am, src/common.c, src/common.h, src/inotifywait.c,
+	  src/inotifywatch.c:
+	  Improve libinotifytools API.
+	  Document with Doxygen.
+
+2006-10-25 11:30  Rohan McGovern
+
+	* Makefile.am, autogen.sh, configure.ac, libinotifytools,
+	  libinotifytools/Makefile.am, libinotifytools/src,
+	  libinotifytools/src/Makefile.am,
+	  libinotifytools/src/inotifytools,
+	  libinotifytools/src/inotifytools.c,
+	  libinotifytools/src/inotifytools/Makefile.am,
+	  libinotifytools/src/inotifytools/inotify-masks.h,
+	  libinotifytools/src/inotifytools/inotify-syscalls.h,
+	  libinotifytools/src/inotifytools/inotify.h,
+	  libinotifytools/src/inotifytools/inotifytools.h,
+	  src/Makefile.am, src/inotify-masks.h, src/inotify-syscalls.h,
+	  src/inotify.h, src/inotifyutils.c, src/inotifyutils.h,
+	  src/inotifywait.c, src/inotifywatch.c:
+	  Separate a lot of code into a shared library, libinotifytools.
+	  Everything compiles and runs, but the API must be improved
+	  before the library is ready for public consumption.
+
+2006-10-02 22:39  Rohan McGovern
+
+	* configure.ac:
+	  VERSION 2.6
+
+2006-10-02 22:38  Rohan McGovern
+
+	* src/inotifywait.c:
+	  Fix --format option outputting 'foo' instead of empty string.
+
+2006-10-02 10:57  Rohan McGovern
+
+	* configure.ac:
+	  VERSION 2.5
+
+2006-10-02 10:53  Rohan McGovern
+
+	* Makefile.am:
+	  Fix so that 'make dist' creates the Changelog in the
+	  conventional direction.
+
+2006-10-02 10:48  Rohan McGovern
+
+	* src/inotifywait.c:
+	  Fixed an issue which could cause the --format option to fail
+	  when inotifywait is compiled with a hardened compiler.
+	  Fixed a few minor compilation warnings.
+
+2006-10-02 10:43  Rohan McGovern
+
+	* configure.ac:
+	  VERSION 2.4
+
+2006-10-02 10:41  Rohan McGovern
+
+	* man/inotifywait.1, man/inotifywatch.1, src/inotifyutils.c,
+	  src/inotifyutils.h, src/inotifywait.c, src/inotifywatch.c:
+	  Added printf-like --format option to inotifywait.
+	  Added CSV output option to inotifywait.
+	  Recursively watch newly created directories in inotifywait.
+	  Changed default output format for inotifywait.
+	  Minor documentation improvements.
+
+2006-08-15 00:21  Rohan McGovern
+
+	* configure.ac:
+	  VERSION 2.3
+
+2006-08-12 00:01  Rohan McGovern
+
+	* Makefile.am, src/inotify-syscalls.h:
+	  Fix compilation on ARM (thanks Rob Walker).
+	  Hopefully also fixed compilation on other architectures,
+	  including frv, mips and parisc, but these need to be tested.
+
+2006-08-06 08:35  Rohan McGovern
+
+	* src/inotifyutils.c:
+	  Mentioned in error message that CONFIG_INOTIFY must be enabled
+	  in kernel config (thanks Martin Gollowitzer, gollo@fsfe.org).
+
+2006-07-07 02:44  Rohan McGovern
+
+	* ChangeLog, Makefile.am:
+	  Add neat code to automatically update ChangeLog on 'make dist'.
+
+2006-07-07 02:42  Rohan McGovern
+
+	* configure.ac, src/inotifyutils.c, src/inotifywait.c,
+	  src/inotifywatch.c:
+	  Fix 'syscall' and 'path' compilation warnings.
+
+2006-07-06 05:43  Rohan McGovern
+
+	* AUTHORS, COPYING, ChangeLog, INSTALL, Makefile.am, NEWS, README,
+	  autogen.sh, configure.ac, man, man/Makefile.am,
+	  man/inotifywait.1, man/inotifywatch.1, src, src/Makefile.am,
+	  src/inotify-masks.h, src/inotify-syscalls.h, src/inotify.h,
+	  src/inotifyutils.c, src/inotifyutils.h, src/inotifywait.c,
+	  src/inotifywatch.c:
+	  Initial commit to Sourceforge, version 2.2.
+

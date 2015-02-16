@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<names>
+	<containers>
+		<english>	
+			<titlePhoto>Photo</titlePhoto>
+			<titlePhototAll>All Photos</titlePhototAll>
+			<titlePhotoAlbum>Album</titlePhotoAlbum>
+			<titlePhotoDate>By Date</titlePhotoDate>
+			<titlePhotoYear>By Year</titlePhotoYear>
+			<titlePhotoFolder>Folder</titlePhotoFolder>
+			<titlePhotoSlideshow>Slideshow</titlePhotoSlideshow>
+			<titlePhotoLastPlayed>Last Viewed</titlePhotoLastPlayed>
+			<titlePhotoMostPlayed>Most Viewed</titlePhotoMostPlayed>
+			<titlePhotoRecentlyAdded>Recently Added</titlePhotoRecentlyAdded>
+			<titleMusic>Music</titleMusic>
+			<titleMusicAll>All Music</titleMusicAll>
+			<titleMusicGenre>Genre</titleMusicGenre>
+			<titleMusicGenreAlbum>Genre/Album</titleMusicGenreAlbum>
+			<titleMusicGenreArtist>Genre/Artist</titleMusicGenreArtist>
+			<titleMusicAlbum>Album</titleMusicAlbum>
+			<titleMusicArtist>Artist</titleMusicArtist>
+			<titleMusicArtistIndex>Artist Index</titleMusicArtistIndex>
+			<titleMusicArtistAlbum>Artist/Album</titleMusicArtistAlbum>
+			<titleMusicRating>Rating</titleMusicRating>
+			<titleMusicDate>By Date</titleMusicDate>
+			<titleMusicYear>By Year</titleMusicYear>
+			<titleMusicFolder>Folder</titleMusicFolder>
+			<titleMusicPlaylist>Playlist</titleMusicPlaylist>
+			<titleMusicLastPlayed>Last Listened</titleMusicLastPlayed>
+			<titleMusicMostPlayed>Most Listened</titleMusicMostPlayed>
+			<titleVideo>Video</titleVideo>
+			<titleVideoAll>All Video</titleVideoAll>
+			<titleVideoGenre>Genre</titleVideoGenre>
+			<titleVideoAlbum>Album</titleVideoAlbum>
+			<titleVideoActor>Actor</titleVideoActor>
+			<titleVideoRating>Rating</titleVideoRating>
+			<titleVideoDate>By Date</titleVideoDate>
+			<titleVideoYear>By Year</titleVideoYear>
+			<titleVideoFolder>Folder</titleVideoFolder>
+			<titleVideoPlaylist>Playlist</titleVideoPlaylist>
+			<titleVideoLastPlayed>Last Watched</titleVideoLastPlayed>
+			<titleVideoMostPlayed>Most Watched</titleVideoMostPlayed>
+			<titleUnknown>Unknown</titleUnknown>
+			<titleOther>Other</titleOther>
+		</english>
+		<french>	
+			<titlePhoto>Photo fr</titlePhoto>
+			<titlePhototAll>All Photos fr</titlePhototAll>
+			<titlePhotoAlbum>Album fr</titlePhotoAlbum>
+			<titlePhotoDate>By Date fr</titlePhotoDate>
+			<titlePhotoYear>By Year fr</titlePhotoYear>
+			<titlePhotoFolder>Folder fr</titlePhotoFolder>
+			<titlePhotoSlideshow>Slideshow fr</titlePhotoSlideshow>
+			<titlePhotoLastPlayed>Last Viewed fr</titlePhotoLastPlayed>
+			<titlePhotoMostPlayed>Most Viewed fr</titlePhotoMostPlayed>
+			<titlePhotoRecentlyAdded>RecentlyAdded fr</titlePhotoRecentlyAdded>
+			<titleMusic>Music fr</titleMusic>
+			<titleMusicAll>All Music fr</titleMusicAll>
+			<titleMusicGenre>Genre fr</titleMusicGenre>
+			<titleMusicGenreAlbum>Genre/Album fr</titleMusicGenreAlbum>
+			<titleMusicGenreArtist>Genre/Artist fr</titleMusicGenreArtist>
+			<titleMusicAlbum>Album fr</titleMusicAlbum>
+			<titleMusicArtist>Artist fr</titleMusicArtist>
+			<titleMusicArtistIndex>Artist Index fr</titleMusicArtistIndex>
+			<titleMusicArtistAlbum>Artist/Album fr</titleMusicArtistAlbum>
+			<titleMusicRating>Rating fr</titleMusicRating>
+			<titleMusicDate>By Date fr</titleMusicDate>
+			<titleMusicYear>By Year fr</titleMusicYear>
+			<titleMusicFolder>Folder fr</titleMusicFolder>
+			<titleMusicPlaylist>Playlist fr</titleMusicPlaylist>
+			<titleMusicLastPlayed>Last Listened fr</titleMusicLastPlayed>
+			<titleMusicMostPlayed>Most Listened fr</titleMusicMostPlayed>			
+			<titleVideo>Video fr</titleVideo>
+			<titleVideoAll>All Video fr</titleVideoAll>
+			<titleVideoGenre>Genre fr</titleVideoGenre>
+			<titleVideoAlbum>Album fr</titleVideoAlbum>
+			<titleVideoActor>Actor fr</titleVideoActor>
+			<titleVideoRating>Rating fr</titleVideoRating>
+			<titleVideoDate>By Date fr</titleVideoDate>
+			<titleVideoYear>By Year fr</titleVideoYear>
+			<titleVideoFolder>Folder fr</titleVideoFolder>
+			<titleVideoPlaylist>Playlist fr</titleVideoPlaylist>
+			<titleVideoLastPlayed>Last Watched fr</titleVideoLastPlayed>
+			<titleVideoMostPlayed>Most Watched fr</titleVideoMostPlayed>			
+			<titleUnknown>Unknown fr</titleUnknown>
+			<titleOther>Other fr</titleOther>
+		</french>
+		<polish>	
+			<titlePhoto>Photo pl</titlePhoto>
+			<titlePhototAll>All Photos pl</titlePhototAll>
+			<titlePhotoAlbum>Album pl</titlePhotoAlbum>
+			<titlePhotoDate>By Date pl</titlePhotoDate>
+			<titlePhotoYear>By Year pl</titlePhotoYear>
+			<titlePhotoFolder>Folder pl</titlePhotoFolder>
+			<titlePhotoSlideshow>Slideshow pl</titlePhotoSlideshow>
+			<titlePhotoLastPlayed>Last Viewed pl</titlePhotoLastPlayed>
+			<titlePhotoMostPlayed>Most Viewed pl</titlePhotoMostPlayed>
+			<titlePhotoRecentlyAdded>RecentlyAdded pl</titlePhotoRecentlyAdded>			
+			<titleMusic>Music pl</titleMusic>
+			<titleMusicAll>All Music pl</titleMusicAll>
+			<titleMusicGenre>Genre pl</titleMusicGenre>
+			<titleMusicGenreAlbum>Genre/Album pl</titleMusicGenreAlbum>
+			<titleMusicGenreArtist>Genre/Artist pl</titleMusicGenreArtist>
+			<titleMusicAlbum>Album pl</titleMusicAlbum>
+			<titleMusicArtist>Artist pl</titleMusicArtist>
+			<titleMusicArtistIndex>Artist Index pl</titleMusicArtistIndex>
+			<titleMusicArtistAlbum>Artist/Album pl</titleMusicArtistAlbum>
+			<titleMusicRating>Rating pl</titleMusicRating>
+			<titleMusicDate>By Date pl</titleMusicDate>
+			<titleMusicYear>By Year pl</titleMusicYear>
+			<titleMusicFolder>Folder pl</titleMusicFolder>
+			<titleMusicPlaylist>Playlist pl</titleMusicPlaylist>
+			<titleMusicLastPlayed>Last Listened pl</titleMusicLastPlayed>
+			<titleMusicMostPlayed>Most Listened pl</titleMusicMostPlayed>			
+			<titleVideo>Video pl</titleVideo>
+			<titleVideoAll>All Video pl</titleVideoAll>
+			<titleVideoGenre>Genre pl</titleVideoGenre>
+			<titleVideoAlbum>Album pl</titleVideoAlbum>
+			<titleVideoActor>Actor pl</titleVideoActor>
+			<titleVideoRating>Rating pl</titleVideoRating>
+			<titleVideoDate>By Date pl</titleVideoDate>
+			<titleVideoYear>By Year pl</titleVideoYear>
+			<titleVideoFolder>Folder pl</titleVideoFolder>
+			<titleVideoPlaylist>Playlist pl</titleVideoPlaylist>
+			<titleVideoLastPlayed>Last Watched pl</titleVideoLastPlayed>
+			<titleVideoMostPlayed>Most Watched pl</titleVideoMostPlayed>			
+			<titleUnknown>Unknown pl</titleUnknown>
+			<titleOther>Other pl</titleOther>
+		</polish>
+	</containers>
+</names>

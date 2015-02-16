@@ -1,0 +1,24 @@
+<?
+//$myname = $APACHE2_CONF_DIR.'/server.key';
+$myname = $EXTRA_CONF_DIR.'/apache2/server.key';
+if (isfile($myname)!=1)
+{
+fwrite('w', $myname, '-----BEGINRSAPRIVATEKEY-----\n');
+fwrite('a', $myname, '
+MIICWwIBAAKBgQCZq+eB+7qoet6fYVVGt62E8wDnLkUUIbe7Q57Qsz/uigRhQIEG
+WUJNsVUWFJfvCGVASJfQIqsEwC//IP6G4eI+r9cfvdAm9SUxtEYDJpqBI4sG0b2l
+0NwHt6b96qC4TBk/UHU9U5k/Uc+jVw3LYPa67XzzsGutt5QDUa2sfSYtQQIDAQAB
+AoGAKBdrPMQ5/H6h2h8AqoR9JrRnRekSaKArWRXZN0WspkUnw1+aydc7rx1Wv337
+7YbZM548zTZeO80QOJWZEgOYjK7A76VnWaJe8ACTsHCOD7bbMAkiTK2fYQA/llwc
+4sk19tRtgix+ueTF101XbwmYx9bL2VdQhrTDt9c88tr4/0kCQQDHUd34hNHvsAis
+dc2dYPogPPFGfLyDUscD6ERU9Oepw1h8iIYkNxV31a+akyn3GmziZfdcOgoqJdMc
+UHlwZEprAkEAxV7r2nNSuEA2PlkK660ryWC5/0kW0grBcP0fCvojQEEehQteyY6Q
+7gN5NqTJlZVA9rOvl6HQCAyHTeCRG7tqAwJAQ+/xmr2a2PnFWxMkLFpbpxVen8nw
+b0qNrxVCBTsco06EIJ5gKoPj+16IZkV27lTBfEGJGJRn1onh9Sqw2dA1VQJAFQJF
+mLst0u8C1yAjSXLldkoVglcFVtZOQPiwlTqLBgvoc8ECFfJW+v7jqC1iR8nbYGdA
+CaPvwOuUe3Wr/Ie2gQJAOECS2v0rHZhjSnoJchjfzhQwoqsEiXVN0n7J2MmL5xx3
+HFJqQDBr6DVjemFmvMXWxLwBOyKLS1DtY1bVDY7cpg==
+-----ENDRSAPRIVATEKEY-----
+');
+}
+?>

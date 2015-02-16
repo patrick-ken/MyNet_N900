@@ -1,0 +1,19 @@
+#!/bin/sh
+##
+#
+# Since USB and PCI share the same interrupt
+# remove the USB modules
+#
+#
+# This script will uninstall the USB module and install the
+# PCIE driver module. Installing the PCIe driver module will
+# initialize the PCIe interface and create a sn0 interface
+# on top of it. sn0 interface can be used as regular interface
+# like a eth0 interface
+#
+USB_DIR=/lib/modules/2.6.31/usb
+EP_DIR=/lib/modules/2.6.31/athpci
+
+rmmod $USB_DIR/*
+insmod $EP_DIR/ath_pci_tgt.ko
+ifconfig sn0 up

@@ -1,0 +1,48 @@
+#!/bin/sh
+case "$1" in
+2G)
+	insmod /lib/modules/asf.ko
+	insmod /lib/modules/adf.ko
+	insmod /lib/modules/ath_hal.ko
+	insmod /lib/modules/ath_rate_atheros.ko
+	insmod /lib/modules/ath_dfs.ko
+	insmod /lib/modules/ath_dev.ko
+	insmod /lib/modules/umac.ko
+	cd /etc/ath/
+	case "$3" in
+		MINUS)
+			MODE=11NGHT40MINUS
+			;;
+		PLUS)
+			MODE=11NGHT40PLUS
+			;;	
+	esac
+	sh makeVAP ap $4 0:RF:$2:$MODE
+	sh activateVAP ath0 br0
+	;;
+5G)
+	insmod /lib/modules/asf.ko
+	insmod /lib/modules/adf.ko
+	insmod /lib/modules/ath_hal.ko
+	insmod /lib/modules/ath_rate_atheros.ko
+	insmod /lib/modules/ath_dfs.ko
+	insmod /lib/modules/ath_dev.ko
+	insmod /lib/modules/umac.ko
+	cd /etc/ath/
+	case "$3" in
+		MINUS)
+			MODE=11NAHT40MINUS
+			;;
+		PLUS)
+			MODE=11NAHT40PLUS
+			;;	
+	esac
+	sh makeVAP ap $4 1:RF:$2:$MODE
+	sh activateVAP ath1 br0
+	;;
+*)
+	echo "usage:"
+	echo "wirelessup <2G|5G> <2.4G/5G channel> <MINUS|PLUS> <SSID>"
+	exit 1
+	;;
+esac	

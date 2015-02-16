@@ -1,0 +1,223 @@
+Overview:
+=========
+
+This file contains a detailed description of operations required to enable 
+the Synopsys HS OTG USB2.0  in the software context of Linux running 
+on all IP8K Ubicom Platforms.
+
+Reference Documentation:
+========================
+We used the following documents in the work performed so far.
+
+	- Jupiter Chip Implementation Specification Ubicom Proprietary and Confidential 5-19-10 (V0.21+)
+	- DesignWare Cores USB 2.0 Hi-Speed On-The-Go (OTG) Databook Version 2.90a April 2009
+	- DesignWare Cores USB 2.0 nanoPHY Two-Port For TSMC 65-nm GP/2.5 V Databook April 1, 2009
+
+	- DesignWare Cores Hi-Speed USB On-The-Go Controller Subsystem Linux Driver Software Release Notes Version 2.90a April 2009
+	- DesignWare Cores Hi-Speed USB On-The-Go Controller Subsystem Linux Driver Software User Guide Version 2.90a April 2009
+
+
+Planned Support:
+================
+This section of text describes what is planned to be supported before the final release of the IP8k in regards
+to the USB2.0 functionatility. 
+
+
+Current Support:
+================
+This section of text describes what is currently supported. This section will contains a summary of the modes and features supported 
+overtime. For example at the time of this writting (07/21/2010 )
+
+Future Date:
+===========
+
+Wednesday 21st of July 2010:
+===========================
+
+	- OTG controller ( lm0 ) supported
+	- Basic Enumeration of Devices
+	- Storage Functionality ( BOT bulk only transfer - SCSI device emulation)
+	- HUB ( one tier ) support with interrupt IN endpoint.  Capable of 4 devices storage only 
+
+
+Hardware Supported:
+===================
+This section of text describes the current boards created around the IP8K core.
+Those boards have been used for hardware and software testing of the USB2.0 functionality
+
+
+Hardware Configuration:
+=======================
+This section of text describes the way the core has been instanciated for each of the USB2.0 controllers present on the IP8K boatds 
+used during the development.
+
+
+Software Configuration:
+=======================
+
+	Code Structure:
+	===============
+	There are several software components provided by Synopsys. Two main categories of code exists
+		o Sytem: The system related files exist in the following locations:
+			ubicom-distro/linux-2.6.x/arch/ubicom32/include/asm/lm.h
+			ubicom-distro/linux-2.6.x/arch/ubicom32/mach-common/usb_dwc.c
+			ubicom-distro/linux-2.6.x/arch/ubicom32/mach-common/lm.c
+
+		o Driver: The driver related files exist in the following locations:
+			ubicom-distro/vendors/synopsys-otg
+                        the code is further divided in the following directories of software interest:
+			 - dwc_common_port
+			 - driver
+			A more complete description of those components exists in the Software User Guide mentioned above.
+			For the purpose of configuration and usage of those components we only need to know that two 
+			modules will be the result of compilation and linking ( see more details in the following sections)
+
+
+	How to enable Synopsys HS OTG driver:
+	=====================================
+	Using the make menuconfig the following configuration options need to be enabled
+
+AUTHOR NOTE: 
+============
+	in the following x) paragraphs the various options required or desired are listed as the help feature of the menuconfig show them. 
+	I may be a bit verbose at time and in reality the only information required would be the CONFIG_X and the setting of X. 
+	This is done for completeness. Another alternative would be a word file with screen shots of each of the configuration screens. 
+	The reason this is so involved is the fact that in order to enable all the features we need for usb ( storage and others ) 	
+	the configuration process is a bit complicated. Reader comments feedback welcome  ( JPS)
+
+
+
+	a) Enable/Disable Synopsys DWC USB 2.0 OTG support:
+           ------------------------------------------------
+
+		 CONFIG_UBI32_DWC_OTG:  
+  
+  	Enable/Disable Synopsys DWC USB 2.0 OTG support.  
+  	
+	Symbol: UBI32_DWC_OTG [=y]
+	Prompt: Synopsys DWC OTG
+	Defined at arch/ubicom32/mach-common/Kconfig.usb:2
+	Depends on: USB_SUPPORT && UBICOM32_V5
+	Location:
+		-> Processor type and features
+			-> USB Controllers 
+
+	b) Enable/Disable the first DWC OTG port:
+           --------------------------------------
+
+ 		CONFIG_DWC_PORT0_ENABLE:
+	
+	Enable/Disable the first DWC OTG port.
+	
+	Symbol: DWC_PORT0_ENABLE [=y]
+	Prompt: USB 2.0 port 0
+	Defined at arch/ubicom32/mach-common/Kconfig.usb:9
+	Depends on: USB_SUPPORT && UBI32_DWC_OTG
+	Location:
+		-> Processor type and features
+			-> USB Controllers
+				-> Synopsys DWC OTG (UBI32_DWC_OTG [=y]) 
+			
+	c) Enable/Disable the second USB port: ( untested as of 07/21/2010)
+	   ----------------------------------------------------------------
+	   This option is required if the second controller is used. 
+	   both or either one are supposed to be supported.
+	   Note however that we have not yet tested the various combinations
+
+            
+		CONFIG_DWC_PORT1_ENABLE:
+
+	Enable/Disable the second USB port.
+	Symbol: DWC_PORT1_ENABLE [=n]
+	Prompt: USB 2.0 port 1
+	Defined at arch/ubicom32/mach-common/Kconfig.usb:39
+	Depends on: USB_SUPPORT && UBI32_DWC_OTG
+	Location:
+		-> Processor type and features
+			-> USB Controllers
+				-> Synopsys DWC OTG (UBI32_DWC_OTG [=y])
+
+
+	d) This option provides the core Cryptographic API:
+	   ------------------------------------------------
+	   As strange as it may look in this context this configuration is required by the dwc_common_port_lib module which provide a generic 
+           OS abstraction layer. We are not currently using any of these cryoptographic functions. This is done only to satisfy compiler and linker. 
+
+
+ 		CONFIG_CRYPTO:
+
+	This option provides the core Cryptographic API.
+	Symbol: CRYPTO [=y]
+	Prompt: Cryptographic API
+	Defined at crypto/Kconfig:15
+	Selected by: AF_RXRPC && NET && INET && EXPERIMENTAL || RXKAD && NET && AF_RXRPC || XFRM && NET || XFRM_IPCOMP && NET || IP_SCTP && NET && INET && EXPERIMENT 
+
+
+	e) This option adds core support for Universal Serial Bus (USB):
+	   -------------------------------------------------------------
+
+		CONFIG_USB_SUPPORT:
+
+	This option adds core support for Universal Serial Bus (USB).
+	You will also need drivers from the following menu to make use of it.
+	Symbol: USB_SUPPORT [=y]
+	Prompt: USB support
+	Defined at drivers/usb/Kconfig:5
+	Depends on: HAS_IOMEM
+	Location:
+		-> Device Drivers         
+
+
+	f) Support for Host-side USB:
+	   -------------------------- 
+
+		CONFIG_USB: 
+	
+	Universal Serial Bus (USB) is a specification for a serial bus
+	subsystem which offers higher speeds and more features than the
+	traditional PC serial port.  The bus supplies power to peripherals
+	and allows for hot swapping.  Up to 127 USB peripherals can be
+	connected to a single USB host in a tree structure.
+	
+	The USB host is the root of the tree, the peripherals are the
+	leaves and the inner nodes are special USB devices called hubs.
+	Most PCs now have USB host ports, used to connect peripherals
+	such as scanners, keyboards, mice, modems, cameras, disks,
+	flash memory, network links, and printers to the PC.
+
+	Say Y here if your computer has a host-side USB port and you want
+	to use USB devices.  You then need to say Y to at least one of the
+	Host Controller Driver (HCD) options below.  Choose a USB 1.1
+	controller, such as "UHCI HCD support" or "OHCI HCD support"
+	and "EHCI HCD (USB 2.0) support" except for older systems that
+	do not have USB 2.0 support.  It doesn't normally hurt to select
+	them all if you are not certain.
+
+	If your system has a device-side USB port, used in the peripheral
+	side of the USB protocol, see the "USB Gadget" framework instead.
+
+	After choosing your HCD, then select drivers for the USB peripherals
+	you'll be using.  You may want to check out the information provided
+	in <file:Documentation/usb/> and especially the links given in 
+	<file:Documentation/usb/usb-help.txt>.
+
+	To compile this driver as a module, choose M here: the
+	module will be called usbcore.
+	Symbol: USB [=y]
+	Prompt: Support for Host-side USB
+	Defined at drivers/usb/Kconfig:63
+	Depends on: USB_SUPPORT && USB_ARCH_HAS_HCD
+	Location:
+		-> Device Drivers
+			-> USB support (USB_SUPPORT [=y])
+	Selected by: MOUSE_APPLETOUCH && !S390 && INPUT && INPUT_MOUSE && USB_ARCH_HAS_HCD || MOUSE_BCM5974 && !S390 && INPUT && INPUT_MOUSE && USB_ARCH_HAS_HCD || J 
+
+  │                                                                                                                                                                 │  
+  ├──────────────────────────────────────────
+
+
+
+
+
+
+                                          

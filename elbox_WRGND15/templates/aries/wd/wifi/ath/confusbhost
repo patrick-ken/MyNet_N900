@@ -1,0 +1,11 @@
+#!/bin/sh
+KVER=`uname -r | cut -f 1 -d '-'`
+MODULE_PATH=/lib/modules/$KVER/usb
+rmmod g_ether
+rmmod ath_udc
+insmod $MODULE_PATH/usbcore.ko
+insmod $MODULE_PATH/ehci-hcd.ko
+insmod $MODULE_PATH/usb-storage.ko
+insmod $MODULE_PATH/usbnet.ko
+insmod $MODULE_PATH/cdc_ether.ko
+echo "Configured USB as host"

@@ -1,0 +1,8 @@
+# Ubicom toolchain path from kevin
+export TPATH_UC=/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02
+export TPATH_KC=/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02
+export TPATH_LIBTGZ=/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/lib.tgz
+export LD_LIBRARY_PATH=/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/lib
+export UBICOM_DONGLE=5.83.28.250:5010
+export PATH=/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin:$PATH
+

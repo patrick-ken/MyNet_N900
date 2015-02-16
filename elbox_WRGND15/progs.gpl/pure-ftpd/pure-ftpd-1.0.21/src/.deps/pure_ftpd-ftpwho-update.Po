@@ -1,0 +1,3 @@
+pure_ftpd-ftpwho-update.o: ftpwho-update.c ../config.h
+
+../config.h:

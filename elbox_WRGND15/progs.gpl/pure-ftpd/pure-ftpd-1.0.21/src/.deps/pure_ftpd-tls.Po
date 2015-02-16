@@ -1,0 +1,3 @@
+pure_ftpd-tls.o: tls.c ../config.h
+
+../config.h:

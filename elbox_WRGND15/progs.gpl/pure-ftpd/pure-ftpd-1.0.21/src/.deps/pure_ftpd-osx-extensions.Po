@@ -1,0 +1,3 @@
+pure_ftpd-osx-extensions.o: osx-extensions.c ../config.h
+
+../config.h:

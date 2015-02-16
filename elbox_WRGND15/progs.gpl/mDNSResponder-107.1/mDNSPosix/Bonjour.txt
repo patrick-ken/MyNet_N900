@@ -1,0 +1,7 @@
+TM-524G-Http
+_http._tcp. local.
+80
+
+TM-524G-Printer
+_printer._tcp. local.
+9100

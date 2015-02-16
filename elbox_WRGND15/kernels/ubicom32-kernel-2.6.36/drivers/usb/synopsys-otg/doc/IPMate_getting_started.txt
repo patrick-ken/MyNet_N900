@@ -1,0 +1,189 @@
+IPMate Platform Getting Started Guide
+=====================================
+Note:
+
+  - All firmware for the IPMate platform is contained on a flash card
+    installed at location CON21 on the base board. If the flash card is not
+    installed, or does not contain at least the Vivi bootloader, the board
+    will not boot.
+
+Setting up the console terminal
+-------------------------------
+Use an Xmodem-capable terminal. Tera Term or Hyper Terminal should work under
+Windows. (Although Tera Term wouldn't download image files correctly using
+Xmodem on the Dell servers here in the lab.) Set the baud rate to
+115200-N-8-1, with flow control set to None, and Character and Line delays
+set to 0.
+
+
+Booting to the Vivi bootloader command line
+-------------------------------------------
+Press the terminal's space bar repeatedly while powering-on/resetting the
+board.
+
+
+Setting Vivi parameters for NFS root
+------------------------------------
+From the Vivi command line, type:
+
+  param set linux_cmd_line "noinitrd root=nfs ip=dhcp nfsroot=xxx.xxx.xxx.xxx:/xxxx init=/linuxrc console=ttySAC0,115200 cs8900a_hwaddr=0xyyyyyyyy"
+  param save
+
+Replace the x's with the IP address and NFS root directory of your NFS server.
+
+Replace the y's with a unique hex value for each IPMate platform on the
+network. This parameter sets the MAC address for the Ethernet interface chip
+on the platform. This is a kludge, since it's possible that the MAC address
+could collide with the MAC address for some other device on the network. But
+it should work well enough for now.
+
+The "param save" command saves the parameters to the flash, so they will be
+preserved across reboots and power cycles. If you don't give the "param save"
+command, the parameters will be reset to their previous values on the next
+boot.
+
+
+Setting Vivi parameters for cramfs root
+---------------------------------------
+From the Vivi command line, type:
+
+  param set linux_cmd_line "noinitrd root=6102 init=/linuxrc console=ttySAC0,115200"
+  param save
+
+The "param save" command saves the parameters to the flash, so they will be
+preserved across reboots and power cycles. If you don't give the "param save"
+command, the parameters will be reset to their previous values on the next
+boot.
+
+
+Booting Linux from the Vivi command line
+----------------------------------------
+From the Vivi command line, type:
+
+  boot
+
+
+Using Vivi to load a new Vivi bootloader image to the flash card
+----------------------------------------------------------------
+From the Vivi command line, type:
+
+  load flash vivi x
+
+The "x" here really is an "x", it tells Vivi to use the Xmodem protocol.
+
+Then download the Vivi bootloader image to the board using the Xmodem
+feature of the terminal. (File->Transfer->Xmodem->Send in Tera Term,
+Transfer->Send File in Hyper Terminal.)
+
+
+Setting the Vivi boot delay
+---------------------------
+By default, Vivi will wait for a very long time after power-on before
+automatically booting the Linux kernel. You probably want to set this to a
+lower value. To set the boot delay to about 2 seconds, type:
+
+  param set boot_delay 4000000
+  param save
+
+
+Using Vivi to load a new kernel image to the flash card
+-------------------------------------------------------
+From the Vivi command line, type:
+
+  load flash kernel x
+
+The "x" here really is an "x", it tells Vivi to use the Xmodem protocol.
+
+Then download the kernel image (zImage) to the board using the Xmodem
+feature of the terminal. (File->Transfer->Xmodem->Send in Tera Term,
+Transfer->Send File in Hyper Terminal.)
+
+
+Using FTP and Imagewrite to load a new cramfs image to the flash card
+---------------------------------------------------------------------
+Boot the IPMate platform into Linux. If there is no cramfs loaded on the
+flash card yet, use NFS root to boot.
+
+If you booted using NFS root, the board will already have an IP address
+assigned. Otherwise, assign one like this:
+
+  ifconfig eth0 xxx.xxx.xxx.xxx netmask 255.255.255.0
+
+Replace the x's with an available IP address on your subnet. If
+your FTP server is on a different subnet, you will also need to
+set the default gateway:
+
+  route add default gw xxx.xxx.xxx.xxx
+
+Replace the x's with the IP address of the default gateway for your
+subnet.
+
+The demo boot sequence creates a FAT file system image in /tmp, and the
+root .profile mounts this on /dev/loop<x>. You should delete this image
+to free up the maximum amount of memory for downloading the cramfs. So,
+first do:
+
+  mount
+
+This will show any existing loop mounts. Typically you will see something
+like this:
+
+  rootfs on / type rootfs (rw)
+  /dev/root on / type cramfs (ro)
+  nodev on /proc type proc (rw,nodiratime)
+  nodev on /dev/pts type devpts (rw)
+  nodev on /tmp type tmpfs (rw)
+  nodev on /var type tmpfs (rw)
+  nodev on /sys type sysfs (rw)
+  /dev/loop1 on /mnt/localfs type vfat (rw,sync,nodiratime,fmask=0033,dmask=0033,codepage=cp437,iocharset=iso8859-1)
+
+You should unmount all /dev/loop<x> mounts. So in this case, do:
+
+  umount /dev/loop1
+
+Now you can delete the FAT filesystem image:
+
+  cd /tmp
+  rm fat.fs
+
+Make sure you are in the /tmp directory, then use FTP to connect to your
+FTP server:
+
+  ftp xxx.xxx.xxx.xxx
+  Name: yourlogin
+  Password: ******
+
+Now change to the directory on your FTP server that contains the cramfs
+image and the imagewrite executable, download those two files, and then
+exit from FTP:
+
+  cd <directory>
+  get root-ipmate.cramfs
+  get imagewrite
+  bye
+
+Now make the imagewrite file executable:
+
+  chmod a+x imagewrite
+
+Finally, use imagewrite to program the cramfs image into the flash:
+
+  ./imagewrite /dev/mtdchar0 root-ipmate.cramfs:2M
+
+The ":2M" on the end of the file name is very important, it tells
+Imagewrite where in the flash to write the image. It doesn't depend on
+the file size or anything like that, it should always be ":2M" for the
+cramfs image.
+
+Imagewrite will display some status lines similar to this:
+
+  meminfo size = 67108864
+  size = 17186816
+  size = 17186816
+
+Imagewrite will take about 45 seconds to program the image into the
+flash, then it will display a line like this:
+
+  bad_block = 0
+
+You should now power cycle or reset the system.

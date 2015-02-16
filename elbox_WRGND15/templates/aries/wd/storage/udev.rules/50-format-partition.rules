@@ -1,0 +1,1 @@
+ACTION=="add", KERNEL=="sd[a-z][1-6]", KERNELS=="2-1", RUN+="/etc/scripts/format_partition.sh %k"

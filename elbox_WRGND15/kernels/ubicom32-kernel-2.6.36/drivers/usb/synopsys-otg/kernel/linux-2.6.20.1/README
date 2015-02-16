@@ -1,0 +1,28 @@
+Instructions for setting up Linux tree
+---------------------------------------
+Set up the kernel tree for compilation:
+
+- Download the linux-2.6.20.1.tar.bz2 file from ftp.kernel.org
+
+- Untar the file to a directory <dir>, copy over the configuration and patch
+files, and rename.
+
+  % tar -jxvf linux-2.6.20.1.tar.bz2 -C <dir>
+  % cd <directory of this README>
+  % cp config-otg patch-ipmate-2.6.20.1 patch-otg <dir>/linux-2.6.20.1
+  % cd <dir>
+  % mv linux-2.6.20.1 linux-2.6.20.1-snps
+
+- Apply Synopsys patches for IPMate and OTG
+
+  % cd <dir>/linux-2.6.20.1-snps
+  % patch -p1 < patch-ipmate-2.6.20.1
+  % patch -p1 < patch-otg
+  % cp config-otg .config
+
+- Build the kernel modules, specifying the cross compilation variables and
+installation paths as appropriate for your environment.
+
+  % make ARCH=arm CROSS_COMPILE=<...> zImage
+  % make ARCH=arm CROSS_COMPILE=<...> INSTALL_MOD_PATH=<...> modules_install
+

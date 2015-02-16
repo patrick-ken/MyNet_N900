@@ -1,0 +1,1 @@
+arm-linux-uclibc-strip --strip-unneeded src/pure-ftpd

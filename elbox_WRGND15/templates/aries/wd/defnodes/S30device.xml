@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<SiGnAtUrE>
+	<runtime>
+		<device>
+			<vendor>Western Digital Corporation</vendor>
+			<fwinfosrv>www.wdc.com</fwinfosrv>
+			<fwinfopath>/router/firmware/query.asp</fwinfopath>
+		</device>
+	</runtime>
+</SiGnAtUrE>

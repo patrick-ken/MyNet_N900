@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=windows-1252">
+	<TITLE>Running Demo</TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.1  (Win32)">
+	<META NAME="AUTHOR" CONTENT="Ashot Madatyan">
+	<META NAME="CREATED" CONTENT="20080519;22360018">
+	<META NAME="CHANGED" CONTENT="20080521;16105465">
+	<META NAME="DESCRIPTION" CONTENT="Description of where the Linux source and tools are found.">
+	<STYLE>
+	<!--
+		H1 { font-family: "Times New Roman" }
+		P { font-family: "Times New Roman"; font-size: 12pt }
+		P.msonormal { margin-bottom: 0in; font-family: "Times New Roman"; font-size: 12pt }
+		H2 { font-family: "Times New Roman" }
+		A:link { color: #0000ff }
+		A:visited { color: #0000ff }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US" LINK="#0000ff" VLINK="#0000ff" DIR="LTR">
+<H1>Running Demo Application on NC Platform (IPMate)</H1>
+<P STYLE="margin-left: 0.79in"><BR>Run the provided &quot;demo&quot;
+script (located in the /root/bin/ directory of  root-ipmate.cramfs)
+to start the demo and load appropriate driver modules.<BR><BR>During
+the demo, there are two file list boxes. The left one represents the
+host machine. The files on the /mnt/localfs are shown here. The right
+one shows the files on an attached USB mass storage device. You can
+open image files from either side, and also transfer files back and
+forth. Once you've opened an image, you can print or close the
+image.<BR><BR>Printing is enabled by attaching an HP photosmart 240
+printer on the bus. Printing directly from a file on a USB device is
+only supported if a hub is<BR>attached.<BR><BR>It may take some
+amount of time for the demo to detect attachment and removal of USB
+devices. Do not remove the USB device while transferring files,
+printing, or<BR>picture loading.<BR><BR><BR>
+</P>
+<H2>Detailed Demo Procedure</H2>
+<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Equipment</FONT></FONT></P>
+<P CLASS="msonormal" STYLE="margin-left: 0.79in; margin-bottom: 0.2in">
+- IPMate platform<BR><BR>- Sony Cyber-shot DSC-P41 digital camera<BR><BR>-
+HP Photosmart 245 printer<BR><BR>- Windows XP host<BR><BR>- Cable
+with mini-A connector on one end and mini-B connector on the other
+for the camera portion of the host demo.<BR><BR>- Cable with mini-A
+connector on one end and a male-B connector on the other for doing
+the printer portion of the host demo.<BR><BR>- Cable with a mini-B
+connector on one end and a male-A connector on the other for doing
+the device demo.</P>
+<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Setup</FONT></FONT></P>
+<P CLASS="msonormal" STYLE="margin-left: 0.79in; margin-bottom: 0.2in">
+- Take some pictures with the digital camera.<BR><BR>- Connect a
+mouse to the IPMate. (This is optional, but a mouse may be useful if
+the touch screen is not aligned properly.)<BR><BR><BR>
+</P>
+<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Albany, sans-serif"><FONT SIZE=4>Demo
+Procedure</FONT></FONT></P>
+<P STYLE="margin-left: 0.79in; margin-bottom: 0.2in">- Start with
+mini-A connector and cable connected to the IPMate and a mini-B
+connector connected to the camera.<BR><BR>- Power on the IPMate. Use
+a serial console to control the demo.<BR><BR>- Log in as root.<BR><BR>-
+Execute &quot;demo&quot; or &quot;demo mouse&quot;. The former uses
+the touch screen on the IPMate. The latter allows using a mouse.<BR><BR>-
+Wait for the GUI to appear on the LCD. The drivers load after the GUI
+and they take about 5 seconds to load.<BR><BR>- If the camera was
+turned on at the start of the demo, the application should detect the
+device after the drivers load and display the top level directory
+from the camera. Otherwise, turn on the camera now and the demo will
+detect it and display the top level directory.<BR><BR>- Navigate to
+the dcim/101msdcf directory (or something similar) by using the Open
+button on the device side of the screen.<BR><BR>- Transfer some files
+from the camera to the Local Files area.<BR><BR>- Choose one of the
+pictures in Local Files and Open it.<BR><BR>- When the picture viewer
+opens, disconnect the mini-A to mini-B cable and connect the mini-A
+to male-B cable between the IPMate and the<BR>printer.<BR><BR>- Make
+sure the printer is on. Press the Print button on the application to
+print the picture. You can close the picture after printing.<BR><BR>-
+Remove the mini-A cable from the IPMate. Attach the mini-B to male-A
+connector between the IPMate and the Windows XP host. The IPMate
+should appear as a mass storage device in Windows Explorer.<BR><BR>-
+View pictures transferred from the camera on the Windows XP host.<BR><BR>-
+Demo complete!</P>
+</BODY>
+</HTML>

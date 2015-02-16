@@ -1,0 +1,3 @@
+pure_ftpd-log_pgsql.o: log_pgsql.c ../config.h
+
+../config.h:

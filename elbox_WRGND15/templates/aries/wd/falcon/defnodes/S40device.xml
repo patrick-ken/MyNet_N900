@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<SiGnAtUrE>
+	<runtime>
+		<device>
+			<wlandriver>BGN band: BCM4331 + AC band: BCM4360</wlandriver>
+			<modelname>MyNetAC1750</modelname>
+			<producturl>http://www.wdc.com</producturl>
+			<description>Wireless Broadband Router</description>
+		</device>
+	</runtime>
+</SiGnAtUrE>

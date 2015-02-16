@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<accessConfigRoot>
+<dmsConfig>
+<language>english</language>
+<refreshFreq>5000</refreshFreq>
+<setTheSharePRI>1</setTheSharePRI>
+<enabled>1</enabled>
+<indexModeManual>0</indexModeManual>
+<sharePRI>2</sharePRI>
+<shareMode>1</shareMode>
+<shareOption>1</shareOption>
+<defaultThumbnailPath>./xml/icon/DMS-defaultTN.jpg</defaultThumbnailPath>
+<defaultPictureThumbnailPath>./xml/icon/picture_normal.jpg</defaultPictureThumbnailPath>
+<defaultMusicThumbnailPath>./xml/icon/music_normal.jpg</defaultMusicThumbnailPath>
+<defaultVideoThumbnailPath>./xml/icon/video_normal.jpg</defaultVideoThumbnailPath>
+<storageMessageFifo>/tmp/dms_ipc</storageMessageFifo>
+<storeEmbeddedAlbumArtsOnDisc>0</storeEmbeddedAlbumArtsOnDisc>
+<maxHttpSessions>0</maxHttpSessions> <!-- Maximum number of open http sessions; 0 to unlimit number of open http session, value >0 to limit opened session -->
+<mpeServerResponseTimeOut>120</mpeServerResponseTimeOut> <!-- In Seconds; -1 for disable usage of timeout, value >= 0 to set value in seconds (0 waits forever) -->
+<contentAggregationEnable>0</contentAggregationEnable>
+<contentAggregationPath>./DMS/data</contentAggregationPath>
+<contentAggregationTimeout>900</contentAggregationTimeout>
+<!-- SSDP M-Search Params, configure these values according to the requirements but please ensure you do not violate specifications -->
+<ssdpNotifyInterval>60</ssdpNotifyInterval>   		<!-- In Seconds - M-Search Advertisements Interval (Heart-Beat) -->
+<ssdpNotifyMsgDelay>200</ssdpNotifyMsgDelay>            <!-- In Milliseconds - Delay between each copy of m-search advertisement -->
+<ssdpNotifyMaxAge>1800</ssdpNotifyMaxAge>               <!-- In Seconds - Cache-Control Max-Age-->
+<ssdpNotifyMsgCopyCount>2</ssdpNotifyMsgCopyCount>      <!-- Number of M-Search Message copies -->
+<!-- STORAGE MEMCHECK - AVAILABLE MEMORY ON THE STORAGE FOR INDEXING AND REBUILD -->
+<memCheckMemoryLimit>512</memCheckMemoryLimit>         <!-- In MegaBytes - It is the minimum amount of memory required for Indexing or Re-Indexing on the Storage during start and during every memCheckRepeatCount -->
+<memCheckRepeatCount>100</memCheckRepeatCount>         <!-- Memory Check is repeated every memCheckRepeatCount during Indexing or Rebuild -->
+<webuiPort>5566</webuiPort>
+<PalDmsUpnpPortMin>2869</PalDmsUpnpPortMin>
+<MpeServerPort>9978</MpeServerPort>
+<localDBWAL>0</localDBWAL>                           <!-- Set this to 1 to enable WAL Journaling for Local Databases, or 0 to enale Rollback Journaling -->
+<databaseCheckpoint>100</databaseCheckpoint>         <!-- Set this to configure after how many items checkpoint will be triggered -->
+<PartialIndexingTN>0</PartialIndexingTN>             <!-- Set this to 0 to disable Thumbnails Generation during Partial Indexing -->
+<thumbnailRebuildInterval>20</thumbnailRebuildInterval> <!-- In Seconds - Change this value to the desired interval when the thumbnails rebuild should be triggerred-->
+<jpegRescale method="whole_image" memory_limit="4194304" /> <!-- Jpeg rescale routine configuration. method="line_by_line", no options. method="whole_image", option memory_limit="value" memory available to routine in bytes -->
+</dmsConfig>
+<netConfig>
+<usbMountPath>/media</usbMountPath>
+<netInterface>br0</netInterface>
+</netConfig>
+<web>
+<!-- If Access webserver (Dahlia) is used, please ensure the portnumber in presentation url match with webServerPort tag value -->
+<presentationURL>http://192.168.1.1</presentationURL>
+<webpageConfig>
+<maxContents>50</maxContents>
+<maxContentsPerScreen>50</maxContentsPerScreen>
+<webServerPort>8080</webServerPort>
+<maxContentsPerScreen_webui>25</maxContentsPerScreen_webui>
+<maxContentPerPage>5</maxContentPerPage>
+<maxContentList>50</maxContentList>
+</webpageConfig>
+</web>
+<usbConfigPublish/>
+</accessConfigRoot>

@@ -1,0 +1,22 @@
+<root>
+<dynamic>
+<friendlyName>NFLC Media Server</friendlyName>
+<manufacturer>ACCESS CO., LTD.</manufacturer>
+<manufacturerURL>http://www.access-company.com/</manufacturerURL>
+<modelName>NFLC SDK v2.3</modelName>
+<modelNumber>1.0</modelNumber>
+<modelURL>http://www.access-company.com/</modelURL>
+<UDN>uuid:00000000-0000-0000-0000-000000000000</UDN>
+<RUIS_UDN>uuid:00000000-0000-0000-0000-000000000000</RUIS_UDN>
+<pnpx:X_hardwareId>VEN_0033&amp;DEV_0001&amp;REV_01</pnpx:X_hardwareId>
+<pnpx:X_compatibleId>MS_DigitalMediaDeviceClass_DMS_V001</pnpx:X_compatibleId>
+<pnpx:X_deviceCategory>MediaDevices</pnpx:X_deviceCategory>
+<df:X_deviceCategory>Multimedia.DMS</df:X_deviceCategory>
+<df:X_modelId>NFLC-DMS</df:X_modelId>
+<df:X_containerId>00000000-0000-0000-0000-000000000000</df:X_containerId>
+</dynamic>
+<extension>
+<serialNumber>1234567890</serialNumber>
+<microsoft:magicPacketWakeSupported>0</microsoft:magicPacketWakeSupported>
+</extension>
+</root>

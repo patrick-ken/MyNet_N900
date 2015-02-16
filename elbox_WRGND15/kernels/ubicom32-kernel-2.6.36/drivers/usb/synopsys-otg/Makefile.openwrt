@@ -1,0 +1,84 @@
+#
+# wrapper of Synopsys DWC OTG linux driver makefiles
+#
+.EXPORT_ALL_VARIABLES:
+.PHONY: all dwc strip clean romfs romfs_dbg
+
+STRIP = $(CROSS_COMPILE)strip
+
+#
+# Reuse LM_INTERFACE to add Ubicom platform driver
+#
+BUS_INTERFACE	:=
+PCI_INTERFACE	:= 0
+
+#  
+# Select the mode of the driver to optimize out unnecessary code
+#
+ifdef CONFIG_DWC_MODE_HOST_ONLY
+CPPFLAGS	+= -DDWC_HOST_ONLY
+endif
+
+ifdef CONFIG_DWC_MODE_DEVICE_ONLY
+CPPFLAGS        += -DDWC_DEVICE_ONLY
+endif
+
+#
+# Debug mode
+#
+ifdef CONFIG_DWC_DEBUG
+CPPFLAGS	+= -DDEBUG
+export CPPFLAGS
+endif
+
+#
+# Define directories
+#
+DWC_DIR 	:= $(shell pwd)
+DWC_DRIVER_DIR	:= $(DWC_DIR)/driver
+DWC_PORTLIB_DIR := $(DWC_DIR)/dwc_common_port
+DWC_PERFLIB_DIR := $(DWC_DIR)/dwc_perf
+DWC_MOD_DIR	:= $(DWC_DIR)/install/mod
+DWC_STRIP_DIR	:= $(DWC_DIR)/install/strip
+KERNEL_DIR	:= $(ROOTDIR)/$(LINUXDIR)
+
+DWC_MODS	:= $(DWC_DRIVER_DIR)/dwc_otg.ko $(DWC_PORTLIB_DIR)/dwc_common_port_lib.ko
+
+#
+# Usb stopwatch performance module 
+#
+ifdef CONFIG_UBICOM32_STOPWATCH_USB
+DWC_MODS += $(DWC_PERFLIB_DIR)/dwc_perf_lib.ko 
+endif
+
+all: dwc strip
+
+dwc: 
+	$(MAKE) -C $(DWC_DRIVER_DIR) ARCH=$(ARCH) $(LDFLAGS) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) KDIR=$(KERNEL_DIR) default
+ifdef CONFIG_UBICOM32_STOPWATCH_USB
+	$(MAKE) -C $(DWC_PERFLIB_DIR) ARCH=$(ARCH) $(LDFLAGS) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) KDIR=$(KERNEL_DIR) default
+endif
+	mkdir -p $(DWC_MOD_DIR)
+	cp $(DWC_MODS) $(DWC_MOD_DIR)
+	
+romfs_dbg:
+	mkdir -p $(ROMFSDIR)/lib/modules/2.6.28.10/kernel
+	cp $(DWC_MODS) $(ROMFSDIR)/lib/modules/2.6.28.10/kernel
+
+	
+
+strip:
+	rm -rf $(DWC_STRIP_DIR)
+	mkdir -p $(DWC_STRIP_DIR)
+	cd $(DWC_MOD_DIR); sh $(TOPDIR)/feeds/ubicom_packages/scripts/move-text-to-ocm.sh ocm_text_dummy.txt
+	cp $(DWC_MOD_DIR)/*.ko $(DWC_STRIP_DIR)
+	cd $(DWC_STRIP_DIR); $(STRIP) -S *.ko
+
+clean:  
+	$(MAKE) -C $(DWC_DRIVER_DIR) clean
+	rm -rf $(DWC_MOD_DIR) $(DWC_STRIP_DIR)
+
+
+romfs: strip
+	mkdir -p $(ROMFSDIR)/lib/modules
+	cp $(DWC_STRIP_DIR)/*.ko $(ROMFSDIR)/lib/modules

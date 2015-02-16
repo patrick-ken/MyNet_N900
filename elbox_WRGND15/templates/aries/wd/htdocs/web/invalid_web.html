@@ -1,0 +1,37 @@
+<HTML>
+<HEAD>
+</head>
+<body bgcolor="#FFFFFF" text="#000000">
+<script>
+	var category="";
+	var url_all="";
+	var url_host="";
+	var str_array = location.href.split("?");
+	var str1_array = str_array[1].split("&");
+
+	for(i=0;i<str1_array.length;i++)
+	{
+		if(str1_array[i].search("category") != -1)
+		{
+			var str2_array = str1_array[i].split("=");
+			category = str2_array[1];		
+		}
+		if(str1_array[i].search("nextpage") != -1)
+		{
+			var str2_array = str1_array[i].split("=");
+			url_all = str2_array[1];
+			str3_array = url_all.split("/");
+			url_host = "http://"+str3_array[2];		
+		}
+				
+	}
+
+	document.write("URL:   		"+url_host+"<br>");
+	document.write("Category:   	"+category+"<br><br>");
+	
+	document.write("<a href='"+url_all+"'>Continue</a>");
+</script>
+</body>
+</html>
+
+

@@ -1,0 +1,11 @@
+ACTION=="add", KERNEL=="sd[a-d]", SUBSYSTEM=="block", RUN+="/etc/scripts/usbmount.sh add %k null %s{serial}"
+ACTION=="add", KERNEL=="sd[a-d][1-7]", SUBSYSTEM=="block", RUN+="/etc/scripts/usbmount.sh add %k null %s{serial}"
+ACTION=="add", KERNEL=="sg[0-9]*", KERNELS=="1-1", RUN+="/etc/scripts/unlock_wd.sh add /dev/%k USB2 %s{serial}"
+ACTION=="add", KERNEL=="sg[0-9]*", KERNELS=="2-1", RUN+="/etc/scripts/unlock_wd.sh add /dev/%k USB1 %s{serial}"
+ACTION=="add", KERNEL=="sd[a-d]", SUBSYSTEM=="block", RUN+="/etc/scripts/SAMBA_speedup.sh %k"
+ACTION=="add", KERNEL=="sd[a-d][1-7]", SUBSYSTEM=="block", RUN+="/etc/scripts/SAMBA_speedup.sh %k"
+
+ACTION=="remove", KERNEL=="sd*", RUN+="/etc/scripts/usbmount.sh remove %k"
+ACTION=="remove", KERNEL=="sd*", KERNELS=="1-1", RUN+="/etc/scripts/unlock_wd.sh remove /dev/%k USB2"
+ACTION=="remove", KERNEL=="sd*", KERNELS=="2-1", RUN+="/etc/scripts/unlock_wd.sh remove /dev/%k USB1"
+SUBSYSTEM=="scsi_generic", RUN+="/etc/scripts/unlock_sg.sh /dev/%k %n %s{serial} %E{KERNELS}"

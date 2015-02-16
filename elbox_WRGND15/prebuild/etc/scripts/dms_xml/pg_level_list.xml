@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<parentalGuidanceLevelList defaultDeviceLevel="1" defaultContentLevel="1">
+<level>
+<id>0</id>
+<name>Disable</name>
+<description>Block device.</description>
+</level>
+<level>
+<id>1</id>
+<name>G</name>
+<description>General Audiences. All ages admitted.</description>
+</level>
+<level>
+<id>2</id>
+<name>PG</name>
+<description>Parental Guidance Suggested. Some material may be not suitable for children.</description>
+</level>
+<level>
+<id>3</id>
+<name>PG-13</name>
+<description>Parents Strongly Cautioned. Some material may be inappropriate for children under 13.</description>
+</level>
+<level>
+<id>4</id>
+<name>R</name>
+<description>Can be seen by children age 16 and above.</description>
+</level>
+<level>
+<id>5</id>
+<name>NC-17</name>
+<description>No One 17 and Under Admitted.</description>
+</level>
+</parentalGuidanceLevelList>

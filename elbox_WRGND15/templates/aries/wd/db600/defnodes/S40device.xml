@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<SiGnAtUrE>
+	<runtime>
+		<device>
+			<wlandriver>AR9344 + AR9382 (LSDK:9.2.0.834)</wlandriver>
+			<modelname>MyNetN600</modelname>
+			<producturl>http://www.wdc.com</producturl>
+			<description>Dual Band Wireless Router</description>
+			<upnpmodelname>My Net N600</upnpmodelname>
+			<conntrack_max>16000</conntrack_max>
+			<conntrack_min>16000</conntrack_min>
+		</device>
+	</runtime>
+</SiGnAtUrE>

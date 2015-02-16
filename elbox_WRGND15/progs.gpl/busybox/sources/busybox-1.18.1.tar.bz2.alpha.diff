@@ -1,0 +1,333 @@
+diff -urN original/busybox-1.18.1/applets/applet_tables.c build/busybox-1.18.1/applets/applet_tables.c
+--- original/busybox-1.18.1/applets/applet_tables.c
++++ build/busybox-1.18.1/applets/applet_tables.c
+@@ -131,11 +131,12 @@
+ 		char line_old[80];
+ 		char line_new[80];
+ 		FILE *fp;
++		char * dummy; // For compiler warning
+ 
+ 		line_old[0] = 0;
+ 		fp = fopen(argv[2], "r");
+ 		if (fp) {
+-			fgets(line_old, sizeof(line_old), fp);
++			dummy = fgets(line_old, sizeof(line_old), fp);
+ 			fclose(fp);
+ 		}
+ 		sprintf(line_new, "#define NUM_APPLETS %u\n", NUM_APPLETS);
+diff -urN original/busybox-1.18.1/applets/usage.c build/busybox-1.18.1/applets/usage.c
+--- original/busybox-1.18.1/applets/usage.c
++++ build/busybox-1.18.1/applets/usage.c
+@@ -41,6 +41,7 @@
+ {
+ 	int i;
+ 	int num_messages = sizeof(usage_array) / sizeof(usage_array[0]);
++	ssize_t s; // For compiler warning
+ 
+ 	if (num_messages == 0)
+ 		return 0;
+@@ -49,7 +50,7 @@
+ 		num_messages, sizeof(usage_array[0]),
+ 		compare_func);
+ 	for (i = 0; i < num_messages; i++)
+-		write(STDOUT_FILENO, usage_array[i].usage, strlen(usage_array[i].usage) + 1);
++		s = write(STDOUT_FILENO, usage_array[i].usage, strlen(usage_array[i].usage) + 1);
+ 
+ 	return 0;
+ }
+diff -urN original/busybox-1.18.1/applets/usage_pod.c build/busybox-1.18.1/applets/usage_pod.c
+--- original/busybox-1.18.1/applets/usage_pod.c
++++ build/busybox-1.18.1/applets/usage_pod.c
+@@ -71,7 +71,7 @@
+ 		} else {
+ 			printf(", ");
+ 		}
+-		printf(usage_array[i].aname);
++		printf("%s",usage_array[i].aname);
+ 		col += len2;
+ 	}
+ 	printf("\n\n");
+diff -urN original/busybox-1.18.1/init/init.c build/busybox-1.18.1/init/init.c
+--- original/busybox-1.18.1/init/init.c
++++ build/busybox-1.18.1/init/init.c
+@@ -120,6 +120,8 @@
+ #endif
+ #include "reboot.h" /* reboot() constants */
+ 
++#include <elbox_config.h>	/* for ELBOX_PROGS_GPL_BUSYBOX_REAL_CONSOLE_DEVICE */
++
+ /* Used only for sanitizing purposes in set_sane_term() below. On systems where
+  * the baud rate is stored in a separate field, we can safely disable them. */
+ #ifndef CBAUD
+@@ -650,11 +652,13 @@
+ 		/* Prepare to restart init when a QUIT is received */
+ 		new_init_action(RESTART, "init", "");
+ 		/* Askfirst shell on tty1-4 */
+-		new_init_action(ASKFIRST, bb_default_login_shell, "");
++		new_init_action(ASKFIRST, bb_default_login_shell, ELBOX_PROGS_GPL_BUSYBOX_REAL_CONSOLE_DEVICE);
++#if 0
+ //TODO: VC_1 instead of ""? "" is console -> ctty problems -> angry users
+ 		new_init_action(ASKFIRST, bb_default_login_shell, VC_2);
+ 		new_init_action(ASKFIRST, bb_default_login_shell, VC_3);
+ 		new_init_action(ASKFIRST, bb_default_login_shell, VC_4);
++#endif
+ 		/* sysinit */
+ 		new_init_action(SYSINIT, INIT_SCRIPT, "");
+ 		return;
+diff -urN original/busybox-1.18.1/networking/ping.c build/busybox-1.18.1/networking/ping.c
+--- original/busybox-1.18.1/networking/ping.c
++++ build/busybox-1.18.1/networking/ping.c
+@@ -198,6 +198,11 @@
+ 	if (!G.hostname)
+ 		bb_show_usage();
+ 
++//+++ joel add if dns server no response ,the 	xhost_and_af2sockaddr block 30 seconds.
++//it is not reason.we give 5 second to do this action.
++	signal(SIGALRM, noresp);
++	alarm(5); /* give the hostname resolv  in 5000ms */
++//--- joel end
+ #if ENABLE_PING6
+ 	lsa = xhost_and_af2sockaddr(G.hostname, 0, af);
+ #else
+diff -urN original/busybox-1.18.1/networking/tftp.c build/busybox-1.18.1/networking/tftp.c
+--- original/busybox-1.18.1/networking/tftp.c
++++ build/busybox-1.18.1/networking/tftp.c
+@@ -105,39 +105,22 @@
+ #define error_pkt_str    (error_pkt + 4)
+ 
+ #if ENABLE_FEATURE_TFTP_PROGRESS_BAR
+-/* SIGALRM logic nicked from the wget applet */
+-static void progress_meter(int flag)
++static void tftp_progress_update(void)
+ {
+-	/* We can be called from signal handler */
+-	int save_errno = errno;
+-
+-	if (flag == -1) { /* first call to progress_meter */
+-		bb_progress_init(&G.pmt);
+-	}
+-
+ 	bb_progress_update(&G.pmt, G.file, 0, G.pos, G.size);
+-
+-	if (flag == 0) {
+-		/* last call to progress_meter */
+-		alarm(0);
+-		bb_putchar_stderr('\n');
+-	} else {
+-		if (flag == -1) { /* first call to progress_meter */
+-			signal_SA_RESTART_empty_mask(SIGALRM, progress_meter);
+-		}
+-		alarm(1);
+-	}
+-
+-	errno = save_errno;
+ }
+ static void tftp_progress_init(void)
+ {
+-	progress_meter(-1);
++	bb_progress_init(&G.pmt);
++	tftp_progress_update();
+ }
+ static void tftp_progress_done(void)
+ {
+-	if (G.pmt.inited)
+-		progress_meter(0);
++	if (G.pmt.inited) {
++		tftp_progress_update();
++		bb_putchar_stderr('\n');
++		G.pmt.inited = 0;
++	}
+ }
+ #else
+ # define tftp_progress_init() ((void)0)
+@@ -460,9 +443,10 @@
+ 		xsendto(socket_fd, xbuf, send_len, &peer_lsa->u.sa, peer_lsa->len);
+ 
+ #if ENABLE_FEATURE_TFTP_PROGRESS_BAR
+-		if (ENABLE_TFTP && remote_file) { /* tftp */
++		if (ENABLE_TFTP && remote_file) /* tftp */
+ 			G.pos = (block_nr - 1) * (uoff_t)blksize;
+-		}
++		if (G.pmt.inited)
++			tftp_progress_update();
+ #endif
+ 		/* Was it final ACK? then exit */
+ 		if (finished && (opcode == TFTP_ACK))
+@@ -479,6 +463,7 @@
+ 		case 0:
+ 			retries--;
+ 			if (retries == 0) {
++				tftp_progress_done();
+ 				bb_error_msg("timeout");
+ 				goto ret; /* no err packet sent */
+ 			}
+diff -urN original/busybox-1.18.1/networking/wget.c build/busybox-1.18.1/networking/wget.c
+--- original/busybox-1.18.1/networking/wget.c
++++ build/busybox-1.18.1/networking/wget.c
+@@ -10,6 +10,8 @@
+  */
+ #include "libbb.h"
+ 
++#define FW_SIZE				"/var/CacheVolume/fw_size"
++
+ struct host_info {
+ 	// May be used if we ever will want to free() all xstrdup()s...
+ 	/* char *allocated; */
+@@ -69,6 +71,8 @@
+ #if ENABLE_FEATURE_WGET_STATUSBAR
+ static void progress_meter(int flag)
+ {
++	char cmd[128] = {0};
++	
+ 	if (option_mask32 & WGET_OPT_QUIET)
+ 		return;
+ 
+@@ -82,6 +86,15 @@
+ 		bb_putchar_stderr('\n');
+ 		G.transferred = 0;
+ 	}
++	/*++++ add this to get real download file size --eric*/	
++#if ENABLE_LFS
++	if(G.transferred == 0)
++	{
++		sprintf(cmd,"echo %lld > %s",G.content_len,FW_SIZE); 			
++		system(cmd);
++	}	
++	/*---- */
++#endif	
+ }
+ #else
+ static ALWAYS_INLINE void progress_meter(int flag UNUSED_PARAM) { }
+@@ -486,6 +499,7 @@
+ # if ENABLE_FEATURE_WGET_TIMEOUT
+ 				if (second_cnt != 0 && --second_cnt == 0) {
+ 					progress_meter(PROGRESS_END);
++					break; /* timeout but still read data, work around for server doesn't response FIN ACK, eric */
+ 					bb_perror_msg_and_die("download timed out");
+ 				}
+ # endif
+diff -urN original/busybox-1.18.1/procps/uptime.c build/busybox-1.18.1/procps/uptime.c
+--- original/busybox-1.18.1/procps/uptime.c
++++ build/busybox-1.18.1/procps/uptime.c
+@@ -38,6 +38,13 @@
+ 
+ 	sysinfo(&info);
+ 
++	/* We need the uptime in the second form. <david_hsieh@alphanetworks.com> */
++	if (argc==2 && strcmp(argv[1], "seconly")==0)
++	{
++		printf("%d\n", (int)info.uptime);
++		return EXIT_SUCCESS;
++	}
++
+ 	printf(" %02d:%02d:%02d up ",
+ 			current_time->tm_hour, current_time->tm_min, current_time->tm_sec);
+ 	updays = (int) info.uptime / (60*60*24);
+diff -urN original/busybox-1.18.1/scripts/basic/split-include.c build/busybox-1.18.1/scripts/basic/split-include.c
+--- original/busybox-1.18.1/scripts/basic/split-include.c
++++ build/busybox-1.18.1/scripts/basic/split-include.c
+@@ -131,7 +131,8 @@
+ 	is_same = 0;
+ 	if ((fp_target = fopen(ptarget, "r")) != NULL)
+ 	{
+-	    fgets(old_line, buffer_size, fp_target);
++	    char * dummy;
++		dummy = fgets(old_line, buffer_size, fp_target); // for compile warning
+ 	    if (fclose(fp_target) != 0)
+ 		ERROR_EXIT(ptarget);
+ 	    if (!strcmp(line, old_line))
+diff -urN original/busybox-1.18.1/scripts/kconfig/conf.c build/busybox-1.18.1/scripts/kconfig/conf.c
+--- original/busybox-1.18.1/scripts/kconfig/conf.c
++++ build/busybox-1.18.1/scripts/kconfig/conf.c
+@@ -68,6 +68,7 @@
+ {
+ 	enum symbol_type type = sym_get_type(sym);
+ 	tristate val;
++	char * dummy;
+ 
+ 	if (!sym_has_value(sym))
+ 		printf("(NEW) ");
+@@ -101,7 +102,7 @@
+ 		check_stdin();
+ 	case ask_all:
+ 		fflush(stdout);
+-		fgets(line, 128, stdin);
++		dummy = fgets(line, 128, stdin); // for compile warning
+ 		return;
+ 	case set_default:
+ 		printf("%s\n", def);
+@@ -282,6 +283,7 @@
+ 	struct menu *child;
+ 	int type;
+ 	bool is_new;
++	char * dummy; // for compile warning
+ 
+ 	sym = menu->sym;
+ 	type = sym_get_type(sym);
+@@ -356,7 +358,7 @@
+ 			check_stdin();
+ 		case ask_all:
+ 			fflush(stdout);
+-			fgets(line, 128, stdin);
++			dummy = fgets(line, 128, stdin); // for compile warning.
+ 			strip(line);
+ 			if (line[0] == '?') {
+ 				printf("\n%s\n", menu->sym->help ?
+diff -urN original/busybox-1.18.1/scripts/kconfig/lxdialog/lxdialog.c build/busybox-1.18.1/scripts/kconfig/lxdialog/lxdialog.c
+--- original/busybox-1.18.1/scripts/kconfig/lxdialog/lxdialog.c
++++ build/busybox-1.18.1/scripts/kconfig/lxdialog/lxdialog.c
+@@ -189,7 +189,7 @@
+ 	int ret = dialog_inputbox(t, av[2], atoi(av[3]), atoi(av[4]),
+ 				  ac == 6 ? av[5] : (char *)NULL);
+ 	if (ret == 0)
+-		fprintf(stderr, dialog_input_result);
++		fprintf(stderr, "%s", dialog_input_result);
+ 	return ret;
+ }
+ 
+diff -urN original/busybox-1.18.1/scripts/kconfig/mconf.c build/busybox-1.18.1/scripts/kconfig/mconf.c
+--- original/busybox-1.18.1/scripts/kconfig/mconf.c
++++ build/busybox-1.18.1/scripts/kconfig/mconf.c
+@@ -467,7 +467,7 @@
+ 
+ 	*argptr++ = NULL;
+ 
+-	pipe(pipefd);
++	if (pipe(pipefd)) return -1; // for compile warning.
+ 	pid = fork();
+ 	if (pid == 0) {
+ 		sigprocmask(SIG_SETMASK, &osset, NULL);
+@@ -831,9 +831,10 @@
+ static void show_textbox(const char *title, const char *text, int r, int c)
+ {
+ 	int fd;
++	ssize_t s;
+ 
+ 	fd = creat(".help.tmp", 0777);
+-	write(fd, text, strlen(text));
++	s = write(fd, text, strlen(text)); // for compile warning
+ 	close(fd);
+ 	show_file(".help.tmp", title, r, c);
+ 	unlink(".help.tmp");
+diff -urN original/busybox-1.18.1/util-linux/fdisk.c build/busybox-1.18.1/util-linux/fdisk.c
+--- original/busybox-1.18.1/util-linux/fdisk.c
++++ build/busybox-1.18.1/util-linux/fdisk.c
+@@ -1321,6 +1321,7 @@
+ 	g_cylinders = total_number_of_sectors / (g_heads * g_sectors * sec_fac);
+ 	if (!g_cylinders)
+ 		g_cylinders = user_cylinders;
++	sector_offset = 2048;
+ }
+ 
+ /*
+@@ -2417,6 +2418,10 @@
+ 		}
+ 	}
+ 
++	stop += 0x7ff;
++	stop &= ~0x7ff;
++	stop--;
++
+ 	set_partition(n, 0, start, stop, sys);
+ 	if (n > 4)
+ 		set_partition(n - 1, 1, ptes[n].offset_from_dev_start, stop, EXTENDED);

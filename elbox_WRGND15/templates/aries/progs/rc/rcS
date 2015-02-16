@@ -1,0 +1,37 @@
+#!/bin/sh
+MFCMODE=`devdata get -e mfcmode`
+
+if [ "$MFCMODE" = "1" ]; then
+	NOT_RUN_LIST=`cat /etc/init.d/not_run_mfc`
+	for i in /etc/init.d/S??* ;do
+		# Ignore dangling symlinks (if any).
+		[ ! -f "$i" ] && continue
+		
+		RUN=1
+		for j in $NOT_RUN_LIST ;do
+			if [ "$i" = /etc/init.d/$j ]; then
+				RUN=0
+				break
+			fi
+		done
+		if [ "$RUN" = "1" ]; then
+			# Run the script.
+			echo "[$i]"
+			$i
+		fi
+		
+	done
+	echo "[$0] done!"
+	/etc/init0.d/rcS mfcmode
+else
+	for i in /etc/init.d/S??* ;do
+	# Ignore dangling symlinks (if any).
+		[ ! -f "$i" ] && continue
+		# Run the script.
+		echo "[$i]"
+		$i
+	done
+	echo "[$0] done!"
+	/etc/init0.d/rcS
+fi
+	

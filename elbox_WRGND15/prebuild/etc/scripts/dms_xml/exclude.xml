@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<excludeList>
+	<entry>Recycled</entry>
+	<entry>$RECYCLE.BIN</entry>
+	<entry>Recycler</entry>
+	<entry>RECYCLE</entry>
+	<entry>.nflc_data</entry>
+	<entry>.Trash</entry>
+	<entry>_album_art</entry>
+	<entry>.AppleDouble</entry>
+	<entry>.AppleDB</entry>
+	<entry>.AppleDesktop</entry>
+	<entry>TemporaryItems</entry>
+	<entry>Software</entry>
+	<entry>_WDPROT</entry>
+	<entry>System Volume Information</entry>
+</excludeList>
+

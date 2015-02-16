@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<SiGnAtUrE>
+	<runtime>
+		<diagnostic>
+			<ping set="/etc/scripts/ping.sh set" get="/etc/scripts/ping.sh get"></ping>
+		</diagnostic>
+	</runtime>
+</SiGnAtUrE>

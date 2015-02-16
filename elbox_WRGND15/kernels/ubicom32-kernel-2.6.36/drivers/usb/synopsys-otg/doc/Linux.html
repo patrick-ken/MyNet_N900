@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=windows-1252">
+	<TITLE>Kernel Source</TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice.org 2.1  (Win32)">
+	<META NAME="AUTHOR" CONTENT="Ashot Madatyan">
+	<META NAME="CREATED" CONTENT="20080519;22360018">
+	<META NAME="CHANGED" CONTENT="20080521;16165880">
+	<META NAME="DESCRIPTION" CONTENT="Description of where the Linux source and tools are found.">
+	<STYLE>
+	<!--
+		H1 { font-family: "Times New Roman" }
+		P { font-family: "Times New Roman"; font-size: 12pt }
+		P.msonormal { margin-bottom: 0in; font-family: "Times New Roman"; font-size: 12pt }
+		H2 { font-family: "Times New Roman" }
+		A:link { color: #0000ff }
+		A:visited { color: #0000ff }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US" LINK="#0000ff" VLINK="#0000ff" DIR="LTR">
+<H1>Preparing the Linux images for the NC Platform (IPMate)</H1>
+<P><BR>The DWC_otg reference driver is built for and tested on Linux
+2.6.20.1 on the IPMate platform. The following instructions are
+provided for building the Linux Images for the IPMate 
+</P>
+<H2>Linux Source</H2>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">The source for this
+version of Linux can be downloaded from www.kernel.org at
+<A HREF="http://www.kernel.org/pub/linux/kernel/v2.6">http://www.kernel.org/pub/linux/kernel/v2.6/</A><BR>Download
+the linux-2.6.20.1.tar.bz2 tarball and use the following command to
+extract the Linux source: 
+</P>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">&nbsp;</P>
+<PRE STYLE="margin-left: 0.42in; margin-bottom: 0.2in">% tar -jxvf linux-2.6.20.1.tar.bz2</PRE><H2>
+Synopsys Linux Source &amp; OTG Patches</H2>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">These patches
+provide changes to the source to get the Synopsys DWC_otg reference
+driver working on the Linux 2.6.20.1 kernel.&nbsp; 
+</P>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">Locate the patch
+files&nbsp;patch-ipmate-2.6.20.1 and patch-otg in the software
+release tree.&nbsp; Use the following command to apply the patches.</P>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">&nbsp;</P>
+<PRE STYLE="margin-left: 0.42in; margin-bottom: 0.2in">% cd linux-2.6.20.1
+% patch -p1 &lt; patch-ipmate-2.6.20.1
+% patch -p1 &lt; patch-otg</PRE><P CLASS="msonormal" STYLE="margin-left: 0.42in; margin-bottom: 0.2in">
+Locate the Linux kernel configuration file (<I>config-otg</I>) and
+copy this configuration file to the directory where the Linux sources
+were installed. 
+</P>
+<PRE STYLE="margin-left: 0.42in; margin-bottom: 0.2in">% cp config-otg linux-2.6.20.1/.config.</PRE><H2 STYLE="margin-left: 0.42in">
+Cross Development tools</H2>
+<P>The DWC_otg reference driver has been tested with the ARM
+processor.<BR>The ARM cross compiler tools can be downloaded from
+www.codesourcery.com at &nbsp;
+<A HREF="http://www.codesourcery.com/public/gnu_toolchain/arm/2004-Q1A/i686-pc-linux-gnu-2004-q1a.tar.gz">http://www.codesourcery.com/public/gnu_toolchain/arm/2004-Q1A/i686-pc-linux-gnu-2004-q1a.tar.gz</A>
+<BR>Extract the tools into a local directory, this directory will be
+used during the build instructions.</P>
+<H2>Boot loader</H2>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">The boot loader
+used on the NC Platform for the reference driver is called something
+like &quot;vivi_*.bin&quot;.&nbsp; Locate this file in the images
+folder and flash this image to the NC board using</P>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">the technique
+described in the <A HREF="IPMate_getting_started.txt">IPMate_getting_started.txt
+</A>file located in the documents folder if necessary.</P>
+<P CLASS="msonormal" STYLE="margin-bottom: 0.2in">&nbsp;</P>
+<H2>Building Linux Images</H2>
+<P>The following commands are used from where the Linux sources were
+installed to build the images required for installation on the
+IPMate.</P>
+<PRE STYLE="margin-left: 0.42in; margin-bottom: 0.2in">% make ARCH=arm CROSS_COMPILE=$ARMTOOLDIR/arm-none-elf- zImage
+% make ARCH=arm CROSS_COMPILE=$ARMTOOLDIR/arm-none-elf- modules
+% su root
+% mount -o loop system.cramfs &lt; RAM IMAGE DIR &gt;
+% make INSTALL_MOD_PATH=&lt; RAM IMAGE DIR &gt; modules_install </PRE><P STYLE="margin-left: 0.42in; text-indent: -0.42in">
+The zImage can be flashed to the NC board using the instructions in
+<A HREF="IPMate_getting_started.txt">IPMate_getting_started.txt</A>.</P>
+<H2>Building Compressed RAM FS Image</H2>
+<P STYLE="margin-left: 0.42in; text-indent: -0.42in">Use the
+following command to create a compressed RAM file system image:</P>
+<PRE STYLE="margin-left: 0.42in; margin-bottom: 0.2in">% mkcramfs --verbose nfs_root /dest_dir/dest.cramfs</PRE><P CLASS="msonormal" STYLE="margin-left: 0.42in; margin-bottom: 0.2in">
+&nbsp;</P>
+<P STYLE="margin-left: 0.42in; text-indent: -0.42in">The CRAMFS file
+can be flashed to the NC board using the instructions in
+<A HREF="IPMate_getting_started.txt">IPMate_getting_started.txt.</A></P>
+</BODY>
+</HTML>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<virtualFolders>
+  <Storage enabled="1">
+  </Storage>
+  
+  <Image enabled="1">
+    <All enabled="1"/>
+    <Album enabled="1"/>
+    <ByDate enabled="1"/>
+    <ByYear enabled="1"/>
+    <Folder enabled="1"/>
+    <Datetime enabled="1"/>
+    <Geotagged enabled="1"/>
+    <Geoarea enabled="1"/>
+    <Slideshow enabled="1"/>
+    <LastPlayed enabled="1"/>
+    <MostPlayed enabled="1"/>
+    <RecentlyAdded enabled="1"/>
+  </Image>
+
+  <Audio enabled="1">
+    <All enabled="1"/>
+    <Artist enabled="1"/>
+    <Genre enabled="1"/>
+    <Album enabled="1"/>
+    <Rating enabled="1"/>
+    <Folder enabled="1"/>
+    <ArtistAlbum enabled="1"/>
+    <ArtistIndex enabled="1"/>
+    <GenreAlbum enabled="1"/>
+    <GenreArtist enabled="1"/>
+    <Playlist enabled="1"/>
+    <LastPlayed enabled="1"/>
+    <MostPlayed enabled="1"/>
+    <RecentlyAdded enabled="1"/>
+  </Audio>
+
+  <Video enabled="1">
+    <All enabled="1"/>
+    <Genre enabled="1"/>
+    <Actor enabled="1"/>
+    <Album enabled="1"/>
+    <Rating enabled="1"/>
+    <ByDate enabled="1"/>
+    <ByYear enabled="1"/>
+    <Folder enabled="1"/>
+    <Coverart enabled="1"/>
+    <Playlist enabled="1"/>
+    <LastPlayed enabled="1"/>
+    <MostPlayed enabled="1"/>    
+    <RecentlyAdded enabled="1"/>
+  </Video>
+
+</virtualFolders>

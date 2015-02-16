@@ -1,0 +1,78 @@
+sg_pt_common.lo: sg_pt_common.c \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/stdlib.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/features.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/uClibc_config.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/uClibc_arch_features.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/cdefs.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../lib/gcc/ubicom32-linux-uclibc/4.4.1/include/stddef.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/types.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/types.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/wordsize.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/kernel_types.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/typesizes.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/pthreadtypes.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/sched.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/time.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/endian.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/endian.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/select.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/select.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/sigset.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/time.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/sysmacros.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/alloca.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/stdint.h \
+ /spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/wchar.h \
+ ../include/sg_pt.h ../config.h
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/stdlib.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/features.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/uClibc_config.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/uClibc_arch_features.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/cdefs.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../lib/gcc/ubicom32-linux-uclibc/4.4.1/include/stddef.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/types.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/types.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/wordsize.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/kernel_types.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/typesizes.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/pthreadtypes.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/sched.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/time.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/endian.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/endian.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/select.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/select.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/sigset.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/time.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/sys/sysmacros.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/alloca.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/stdint.h:
+
+/spaces/opt/ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02/bin/../ubicom32-linux-uclibc/runtime/usr/include/bits/wchar.h:
+
+../include/sg_pt.h:
+
+../config.h:

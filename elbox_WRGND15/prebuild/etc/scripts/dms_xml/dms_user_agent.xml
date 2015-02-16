@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Place ~42; whenever you want to ignore multiple characters in user agent. -->
+<deviceList>
+	<device id="X-BOX">
+	 	<useragent>~42;Xbox~42;</useragent>
+	 	<mimetypeConversionList>
+			<mimetype name="video/x-mkv">video/x-matroska</mimetype>
+		</mimetypeConversionList>
+		<xmlCustomization>xmmrr</xmlCustomization>
+	</device>
+        <device id="MSCertTool">
+                <useragent>Microsoft-Windows/6.2 UPnP/1.0~42;</useragent>
+                <xmlCustomization>ms_cert_tool</xmlCustomization>
+        </device>
+	<device id="MSWMP12">
+	 	<useragent>Microsoft-Windows/6.1 UPnP/1.0 Windows-Media-Player/12~42; DLNADOC/1.50 (MS-DeviceCaps/1024)</useragent>
+		<xmlCustomization>ms_cert_tool</xmlCustomization>
+	</device>
+	<device id="Mediaroom">
+	 	<useragent>~42;Microsoft-IPTV-Client~42;</useragent>
+	 	<mimetypeConversionList>
+			<mimetype name="video/x-mkv">video/x-matroska</mimetype>
+		</mimetypeConversionList>
+		<xmlCustomization>mediaroom</xmlCustomization>
+	</device>
+	<device id="WD TV">
+ 	 	<useragent condition="wd_tv_live_hub">~42;dma/3.0 alphanetworks</useragent>
+		<customSubtitle>wd_tv_live_hub</customSubtitle>
+		<xmlCustomization>wd_tv_live_hub</xmlCustomization>
+	</device>
+	<device id="Sony Bravia">
+	 	<useragent condition="sony_bravia">UPnP/1.0 DLNADOC/1.50</useragent>
+		<xmlCustomization>bravia</xmlCustomization>
+	</device>
+	<device id="Samsung TV">
+	 	<useragent condition="samsung">~42;DLNADOC/1.50~42;</useragent>
+		<customSubtitle>samsung</customSubtitle>
+		<xmlCustomization>samsung</xmlCustomization>
+	</device>
+	<device id="Cyberlink DMP">
+		<useragent>~42;INTEL_NMPR~42;</useragent>
+		<playlists>
+			<generated>disable</generated>
+		</playlists>
+		<references>
+			<videoThumbnail>disable</videoThumbnail>
+		</references>
+	</device>
+</deviceList>

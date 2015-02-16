@@ -1,0 +1,3 @@
+pure_ftpd-caps.o: caps.c ../config.h
+
+../config.h:

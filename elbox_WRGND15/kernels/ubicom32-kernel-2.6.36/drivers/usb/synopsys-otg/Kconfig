@@ -1,0 +1,26 @@
+choice
+	prompt "DWC Driver mode"
+	default DWC_MODE_OTG
+
+config DWC_MODE_OTG
+	bool "OTG"
+	help
+	  This option enables the driver to follow the USB OTG spec and 
+	  can dynamically switch between host role and device role.
+
+config DWC_MODE_HOST_ONLY
+	bool "Host Only"
+	help
+	  This option will compile the driver in host-only mode.
+
+config DWC_MODE_DEVICE_ONLY
+	bool "Device Only"
+	help
+	  This option will compile the driver in device-only mode.
+
+endchoice
+
+config DWC_DEBUG
+	bool "Debug"
+	help
+	  This option will compile the driver with debug on.

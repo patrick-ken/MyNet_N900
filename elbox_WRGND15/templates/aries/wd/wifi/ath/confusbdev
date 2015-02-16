@@ -1,0 +1,11 @@
+#!/bin/sh
+KVER=`uname -r | cut -f 1 -d '-'`
+MODULE_PATH=/lib/modules/$KVER/usb
+rmmod ehci-hcd
+rmmod usb-storage
+rmmod cdc_ether
+rmmod usbnet
+rmmod usbcore
+insmod $MODULE_PATH/ath_udc.ko
+insmod $MODULE_PATH/g_ether.ko
+echo "Configured USB in device mode"
