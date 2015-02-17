@@ -19,8 +19,8 @@ Use this guide http://git-scm.com/book/en/v2/Getting-Started-Installing-Git
         $ exit
 
 - Create and change into directory where you'll put the source code (~/Development works fine)
-- Clone the source repository from GitHub:
-	$git clone https://github.com/PeterFalken/MyNet_N900.git
+- Clone the Toolchain repository from GitHub:
+	$git clone https://github.com/PeterFalken/MyNet_N900_Toolchain.git
 
 - Copy the Toolchain to /opt directory
 	$ cd MyNet_N900_Toolchain
