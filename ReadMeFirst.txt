@@ -11,7 +11,7 @@ Upgrade the version git from 1.65 to the latest one.
 Use this guide http://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 - Download the latest git source tarball
 - Extract and use the following commands to upgrade git:
-		$ make configure
+	$ make configure
         $ ./configure --prefix=/usr
         $ make all
         $ su
@@ -20,13 +20,19 @@ Use this guide http://git-scm.com/book/en/v2/Getting-Started-Installing-Git
 
 - Create and change into directory where you'll put the source code (~/Development works fine)
 - Clone the source repository from GitHub:
-		$git clone https://github.com/PeterFalken/MyNet_N900.git
+	$git clone https://github.com/PeterFalken/MyNet_N900.git
 
-- Copy the Ubicom32 toolbox into /opt directory
-		$ cd MyNet_N900/elbox_WRGND15
-		$ su
-		$ cp -rf ubicom32_sdk32x_gcc-4.4.1_uclibc-0.9.30.1_v02 /opt
-		$ exit
+- Copy the Toolchain to /opt directory
+	$ cd MyNet_N900_Toolchain
+	$ su
+	$ cp -rf ubi32_sdk32 /opt
+	$ exit
+
+- After this step you may remove the MyNet_N900_Toolchain directory:
+	$rm MyNet_N900_Toolchain
+
+- Clone the source repository from GitHub:
+        $git clone https://github.com/PeterFalken/MyNet_N900.git
 
 
 =======================================
