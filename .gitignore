@@ -1,0 +1,7 @@
+# IDEA Files
+.idea
+*.iml
+
+# Compilations outputs
+target
+targets
