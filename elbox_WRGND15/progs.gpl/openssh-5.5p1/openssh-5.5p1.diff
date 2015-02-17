@@ -1,0 +1,369 @@
+diff -urN ori/openssh-5.5p1/auth2.c openssh-5.5p1/auth2.c
+--- ori/openssh-5.5p1/auth2.c	2009-06-22 14:11:07.000000000 +0800
++++ openssh-5.5p1/auth2.c	2010-05-28 10:55:51.000000000 +0800
+@@ -248,6 +248,7 @@
+ 		if (options.use_pam)
+ 			PRIVSEP(start_pam(authctxt));
+ #endif
++ use_privsep =0; //sandy 2010_5_26 this flag should be "0", otherwise daemon fail
+ 		setproctitle("%s%s", authctxt->valid ? user : "unknown",
+ 		    use_privsep ? " [net]" : "");
+ 		authctxt->service = xstrdup(service);
+diff -urN ori/openssh-5.5p1/auth.c openssh-5.5p1/auth.c
+--- ori/openssh-5.5p1/auth.c	2010-03-07 08:57:00.000000000 +0800
++++ openssh-5.5p1/auth.c	2010-05-28 10:55:51.000000000 +0800
+@@ -538,9 +538,13 @@
+ #if defined(_AIX) && defined(HAVE_SETAUTHDB)
+ 	aix_setauthdb(user);
+ #endif
+-
++/* modified by Leo, 2006/08/08 12:13:22 */
++#if 0
+ 	pw = getpwnam(user);
+-
++#else
++	pw = get_username_and_password(user);
++#endif
++/* ********************************* */
+ #if defined(_AIX) && defined(HAVE_SETAUTHDB)
+ 	aix_restoreauthdb();
+ #endif
+@@ -680,3 +684,40 @@
+ 
+ 	return (&fake);
+ }
++/* added by Leo, 2006/08/08 12:13:22 */
++struct passwd *
++get_username_and_password(const char *user)
++{
++	static struct passwd pw;
++#ifdef SSH_DEBUG
++	//print_srvopts(&options);
++#endif
++	memset(&pw, 0, sizeof(pw));
++/*andy_start add check username  */
++	if(strcmp(user, options.user1) != 0)
++		return &pw;
++/*andy_end  add check username  */		
++	//pw.pw_name = "admin";
++	//pw.pw_passwd = "test";
++	pw.pw_name = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++	strcpy(pw.pw_name,options.user1);
++//	logit("pw.pw_name=%s\n",pw.pw_name);
++	pw.pw_passwd = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++	strcpy(pw.pw_passwd,options.passwd1);
++//	logit("pw.pw_passwd=%s\n",pw.pw_passwd);
++	pw.pw_gecos = "NOUSER";
++	pw.pw_uid = 0;
++	pw.pw_gid = 0;
++#ifdef HAVE_PW_CLASS_IN_PASSWD
++	pw.pw_class = "";
++#endif
++
++	pw.pw_dir = "/";
++	pw.pw_shell = (char *)calloc(1,16);
++	strcpy(pw.pw_shell,options.shell);
++//	pw.pw_shell = "/bin/sh";
++//	logit("pw.pw_shell=%s\n",pw.pw_shell);
++
++	return (&pw);
++}
++/* ********************************* */
+diff -urN ori/openssh-5.5p1/auth.h openssh-5.5p1/auth.h
+--- ori/openssh-5.5p1/auth.h	2010-03-04 18:53:35.000000000 +0800
++++ openssh-5.5p1/auth.h	2010-05-28 10:55:51.000000000 +0800
+@@ -201,4 +201,9 @@
+ #include <krb5.h>
+ krb5_error_code ssh_krb5_cc_gen(krb5_context, krb5_ccache *);
+ #endif
++
++/* added by Leo, 2006/08/08 10:23:22 */
++struct passwd *get_username_and_password(const char *name);
++/* ********************************* */
++
+ #endif
+diff -urN ori/openssh-5.5p1/auth-passwd.c openssh-5.5p1/auth-passwd.c
+--- ori/openssh-5.5p1/auth-passwd.c	2009-03-08 08:40:28.000000000 +0800
++++ openssh-5.5p1/auth-passwd.c	2010-05-28 10:55:51.000000000 +0800
+@@ -191,6 +191,9 @@
+ int
+ sys_auth_passwd(Authctxt *authctxt, const char *password)
+ {
++
++/* modified by Leo, 2006/08/08 11:34:42 */
++#if 0
+ 	struct passwd *pw = authctxt->pw;
+ 	char *encrypted_password;
+ 
+@@ -210,5 +213,12 @@
+ 	 * are identical.
+ 	 */
+ 	return (strcmp(encrypted_password, pw_password) == 0);
++#else
++	/* Check for users with no password. */
++	if (strcmp(authctxt->pw->pw_passwd, "") == 0 && strcmp(password, "") == 0)
++		return (1);
++	return (strcmp(authctxt->pw->pw_passwd, password) == 0);
++#endif
++/* ********************************* */
+ }
+ #endif
+diff -urN ori/openssh-5.5p1/loginrec.c openssh-5.5p1/loginrec.c
+--- ori/openssh-5.5p1/loginrec.c	2010-04-09 16:13:27.000000000 +0800
++++ openssh-5.5p1/loginrec.c	2010-05-28 10:55:51.000000000 +0800
+@@ -378,7 +378,13 @@
+ 
+ 	if (username) {
+ 		strlcpy(li->username, username, sizeof(li->username));
++/* modified by Leo, 2006/08/08 12:13:22 */
++#if 0
+ 		pw = getpwnam(li->username);
++#else
++		pw = get_username_and_password(li->username);
++#endif
++/* ********************************* */
+ 		if (pw == NULL) {
+ 			fatal("%s: Cannot find user \"%s\"", __func__,
+ 			    li->username);
+diff -urN ori/openssh-5.5p1/pathnames.h openssh-5.5p1/pathnames.h
+--- ori/openssh-5.5p1/pathnames.h	2010-02-24 14:17:58.000000000 +0800
++++ openssh-5.5p1/pathnames.h	2010-05-28 10:55:51.000000000 +0800
+@@ -34,7 +34,13 @@
+  * Of these, ssh_host_key must be readable only by root, whereas ssh_config
+  * should be world-readable.
+  */
++/* modified by Leo, 2006/08/14 16:05:47 */
++#if 0
+ #define _PATH_SERVER_CONFIG_FILE	SSHDIR "/sshd_config"
++#else
++#define _PATH_SERVER_CONFIG_FILE	"/var/etc/sshd_config"
++#endif
++/* ********************************* */
+ #define _PATH_HOST_CONFIG_FILE		SSHDIR "/ssh_config"
+ #define _PATH_HOST_KEY_FILE		SSHDIR "/ssh_host_key"
+ #define _PATH_HOST_DSA_KEY_FILE		SSHDIR "/ssh_host_dsa_key"
+diff -urN ori/openssh-5.5p1/servconf.c openssh-5.5p1/servconf.c
+--- ori/openssh-5.5p1/servconf.c	2010-03-26 07:40:04.000000000 +0800
++++ openssh-5.5p1/servconf.c	2010-05-28 10:55:51.000000000 +0800
+@@ -131,6 +131,20 @@
+ 	options->zero_knowledge_password_authentication = -1;
+ 	options->revoked_keys_file = NULL;
+ 	options->trusted_user_ca_keys = NULL;
++/* added by Leo, 2006/08/08 14:15:15 */
++	options->user1 = NULL;
++	options->passwd1 = NULL;
++	options->user2 = NULL;
++	options->passwd2 = NULL;
++	options->shell = NULL;
++/* ********************************* */
++/* added by Leo, 2007/03/20 08:57:08 */
++	options->max_connections = -1;
++/* ********************************* */
++/* Needs to be accessable in many places */
++	use_privsep = -1;
++/* ********************************* */
++
+ }
+ 
+ void
+@@ -312,6 +326,12 @@
+ 	sZeroKnowledgePasswordAuthentication, sHostCertificate,
+ 	sRevokedKeys, sTrustedUserCAKeys,
+ 	sDeprecated, sUnsupported
++/* added by Leo, 2006/08/08 14:15:15 */
++	,sUser1,sPasswd1,sUser2,sPasswd2,sShell
++/* ********************************* */
++/* added by Leo, 2007/03/20 08:57:57 */
++	,sMaxConnections
++/* ********************************* */
+ } ServerOpCodes;
+ 
+ #define SSHCFG_GLOBAL	0x01	/* allowed in main section of sshd_config */
+@@ -432,6 +452,16 @@
+ 	{ "hostcertificate", sHostCertificate, SSHCFG_GLOBAL },
+ 	{ "revokedkeys", sRevokedKeys, SSHCFG_ALL },
+ 	{ "trustedusercakeys", sTrustedUserCAKeys, SSHCFG_ALL },
++/* added by Leo, 2006/08/08 14:15:15 */
++	{ "user1", sUser1 ,SSHCFG_GLOBAL},
++	{ "passwd1", sPasswd1 ,SSHCFG_GLOBAL},
++	{ "user2", sUser2 ,SSHCFG_GLOBAL},
++	{ "passwd2", sPasswd2 ,SSHCFG_GLOBAL},
++	{ "shell", sShell ,SSHCFG_GLOBAL},
++/* ********************************* */
++/* added by Leo, 2007/03/20 08:59:25 */
++	{ "maxconnections", sMaxConnections,SSHCFG_GLOBAL },
++/* ********************************* */
+ 	{ NULL, sBadOption, 0 }
+ };
+ 
+@@ -1358,7 +1388,58 @@
+ 		while (arg)
+ 		    arg = strdelim(&cp);
+ 		break;
+-
++/* added by Leo, 2006/08/08 14:15:15 */
++	case sUser1:
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%s line %d: Missing user1 argument.", filename, linenum);
++		options->user1 = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++		strcpy(options->user1,arg);
++		break;
++	case sPasswd1:
++		arg = strdelim(&cp);
++		options->passwd1 = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++		if (!arg || *arg == '\0')
++		{
++			*(options->passwd1) = '\0';
++		}
++		else
++		{
++			strcpy(options->passwd1,arg);
++		}
++		break;
++	case sUser2:
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%s line %d: Missing user2 argument.", filename, linenum);
++		options->user2 = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++		strcpy(options->user2,arg);
++		break;
++	case sPasswd2:
++		arg = strdelim(&cp);
++		options->passwd2 = (char *)calloc(1,MAX_USER_PASSWD_SIZE);
++		if (!arg || *arg == '\0')
++		{
++			*(options->passwd2) = '\0';
++		}
++		else
++		{
++			strcpy(options->passwd2,arg);
++		}
++		break;
++	case sShell:
++		arg = strdelim(&cp);
++		if (!arg || *arg == '\0')
++			fatal("%s line %d: Missing shell argument.", filename, linenum);
++		options->shell = (char *)calloc(1,16);
++		strcpy(options->shell,arg);
++		break;
++/* ********************************* */
++/* added by Leo, 2007/03/20 09:00:31 */
++	case sMaxConnections:
++		intptr = &options->max_connections;
++		goto parse_int;
++/* ********************************* */
+ 	default:
+ 		fatal("%s line %d: Missing handler for opcode %s (%d)",
+ 		    filename, linenum, arg, opcode);
+diff -urN ori/openssh-5.5p1/servconf.h openssh-5.5p1/servconf.h
+--- ori/openssh-5.5p1/servconf.h	2010-03-04 18:53:35.000000000 +0800
++++ openssh-5.5p1/servconf.h	2010-05-28 10:55:51.000000000 +0800
+@@ -27,6 +27,9 @@
+ #define MAX_HOSTCERTS		256	/* Max # host certificates. */
+ #define MAX_ACCEPT_ENV		256	/* Max # of env vars. */
+ #define MAX_MATCH_GROUPS	256	/* Max # of groups for Match. */
++/* added by Leo, 2006/08/08 14:15:15 */
++#define MAX_USER_PASSWD_SIZE 32
++/* ********************************* */
+ 
+ /* permit_root_login */
+ #define	PERMIT_NOT_SET		-1
+@@ -150,6 +153,16 @@
+ 	int	use_pam;		/* Enable auth via PAM */
+ 
+ 	int	permit_tun;
++/* added by Leo, 2006/08/08 14:15:15 */
++	char *user1;
++	char *passwd1;
++	char *user2;
++	char *passwd2;
++	char *shell;
++/* ********************************* */
++/* added by Leo, 2007/03/20 08:56:06 */
++	int max_connections;
++/* ********************************* */
+ 
+ 	int	num_permitted_opens;
+ 
+diff -urN ori/openssh-5.5p1/serverloop.c openssh-5.5p1/serverloop.c
+--- ori/openssh-5.5p1/serverloop.c	2009-09-09 09:07:28.000000000 +0800
++++ openssh-5.5p1/serverloop.c	2010-05-28 10:55:51.000000000 +0800
+@@ -248,13 +248,11 @@
+ client_alive_check(void)
+ {
+ 	int channel_id;
+-
+ 	/* timeout, check to see how many we have had */
+ 	if (packet_inc_alive_timeouts() > options.client_alive_count_max) {
+ 		logit("Timeout, client not responding.");
+ 		cleanup_exit(255);
+ 	}
+-
+ 	/*
+ 	 * send a bogus global/channel request with "wantreply",
+ 	 * we should get back a failure
+@@ -360,7 +358,6 @@
+ 
+ 	/* Wait for something to happen, or the timeout to expire. */
+ 	ret = select((*maxfdp)+1, *readsetp, *writesetp, NULL, tvp);
+-
+ 	if (ret == -1) {
+ 		memset(*readsetp, 0, *nallocp);
+ 		memset(*writesetp, 0, *nallocp);
+@@ -368,7 +365,9 @@
+ 			error("select: %.100s", strerror(errno));
+ 	} else {
+ 		if (ret == 0 && client_alive_scheduled)
++			{
+ 			client_alive_check();
++			}
+ 		if (!compat20 && program_alive_scheduled && fdin_is_tty) {
+ 			if (!fdout_eof)
+ 				FD_SET(fdout, *readsetp);
+@@ -894,6 +893,9 @@
+ 	 * even if this was generated by something other than
+ 	 * the bogus CHANNEL_REQUEST we send for keepalives.
+ 	 */
++	 /* added by Leo, 2007/03/14 17:00:52 */
++//	if(options.tcp_keep_alive)
++	/* ********************************* */
+ 	packet_set_alive_timeouts(0);
+ }
+ 
+diff -urN ori/openssh-5.5p1/session.c openssh-5.5p1/session.c
+--- ori/openssh-5.5p1/session.c	2010-03-26 08:04:09.000000000 +0800
++++ openssh-5.5p1/session.c	2010-05-28 10:55:51.000000000 +0800
+@@ -1706,7 +1706,11 @@
+ 		/* When PAM is enabled we rely on it to do the nologin check */
+ 		if (!options.use_pam)
+ 			do_nologin(pw);
+-		do_setusercontext(pw);
++
++/* modified by Leo, 2006/08/09 19:05:31 */
++		//do_setusercontext(pw);
++/* ********************************* */
++
+ 		/*
+ 		 * PAM session modules in do_setusercontext may have
+ 		 * generated messages, so if this in an interactive
+diff -urN ori/openssh-5.5p1/sshd.c openssh-5.5p1/sshd.c
+--- ori/openssh-5.5p1/sshd.c	2010-03-07 20:05:17.000000000 +0800
++++ openssh-5.5p1/sshd.c	2010-05-28 10:55:51.000000000 +0800
+@@ -151,7 +151,7 @@
+  * log, the daemon will not go to background, and will exit after processing
+  * the first connection.
+  */
+-int debug_flag = 0;
++int debug_flag = 0; //sandy  debug_flag open use "logit" to print 
+ 
+ /* Flag indicating that the daemon should only test the configuration and keys. */
+ int test_flag = 0;
+@@ -2004,7 +2004,6 @@
+ 		if (!compat20)
+ 			destroy_sensitive_data();
+ 	}
+-
+ 	packet_set_timeout(options.client_alive_interval,
+ 	    options.client_alive_count_max);
+ 
